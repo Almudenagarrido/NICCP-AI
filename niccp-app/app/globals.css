@@ -33,3 +33,18 @@ body {
   width: 120px;
   height: auto;
 }
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.layout aside {
+  width: 250px;
+}
+
+.layout main {
+  flex: 1;
+  padding: 1rem;
+}
+

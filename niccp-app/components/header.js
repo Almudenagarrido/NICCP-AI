@@ -1,36 +1,38 @@
-// app/components/header.js
 "use client";
-import Link from "next/link";
+import Image from "next/image";
 import styles from "./header.module.css";
 
 export default function Header() {
   return (
     <header className={styles.headerContainer}>
-      <nav className={styles.navContainer}>
-        <ul className={styles.navList}>
-          <li className={styles.navItem}>
-            <Link className={styles.navLink} href="/">Introduction</Link>
-          </li>
-          <li className={styles.navItem}>
-            <Link className={styles.navLink} href="/execution">Execution</Link>
-          </li>
-          <li className={styles.navItem}>
-            <Link className={styles.navLink} href="/summary-dashboard">Summary Dashboard</Link>
-          </li>
-          <li className={styles.navItem}>
-            <Link className={styles.navLink} href="/carbon-credits">Carbon Credits</Link>
-          </li>
-          <li className={styles.navItem}>
-            <Link className={styles.navLink} href="/techno-economic-inputs">Techno-economic Inputs</Link>
-          </li>
-          <li className={styles.navItem}>
-            <Link className={styles.navLink} href="/cleanstep-plan">CleanStep Plan</Link>
-          </li>
-          <li className={styles.navItem}>
-            <Link className={styles.navLink} href="/aligned-plan">Aligned-Plan</Link>
-          </li>
-        </ul>
-      </nav>
+      <div className={styles.headerContent}>
+        <h1 className={styles.title}>
+          National Integrated Clean Cooking Planning (NICCP)
+        </h1>
+        <div className={styles.logoGroup}>
+          <Image
+            src="/niccp-logo.png"
+            alt="NICCP Logo"
+            width={50}
+            height={50}
+            className={styles.logo}
+          />
+          <Image
+            src="/se4all-logo.png"
+            alt="SE4All Logo"
+            width={45}
+            height={45}
+            className={styles.logo}
+          />
+          <Image
+            src="/iit-logo.png"
+            alt="IIT Logo"
+            width={65}
+            height={35}
+            className={styles.logo}
+          />
+        </div>
+      </div>
     </header>
   );
 }
