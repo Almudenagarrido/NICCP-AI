@@ -1,0 +1,33 @@
+.headerContainer {
+  background-color: #164C45;
+  color: white;
+  padding: 10px 0;
+  text-align: center;
+}
+
+.navContainer {
+  display: flex;
+  justify-content: center;
+}
+
+.navList {
+  list-style: none;
+  display: flex;
+  gap: 30px;
+  padding: 0;
+  margin: 0;
+}
+
+.navItem {
+  display: flex;
+}
+
+.navLink {
+  text-decoration: none;
+  color: white;
+  font-size: 16px;
+}
+
+.navLink:hover {
+  color: #e0e0e0;
+}
