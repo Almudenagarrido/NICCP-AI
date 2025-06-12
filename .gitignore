@@ -1,1 +1,37 @@
+# Entorno virtual
 venv/
+.venv/
+
+# Archivos de configuración de entorno
+.env
+.env.*
+
+# Archivos de Python compilados
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos temporales
+*.log
+*.tmp
+*.swp
+
+# Configuración del sistema/IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Archivos de Jupyter (por si acaso)
+.ipynb_checkpoints
+
+# Archivos de test / cobertura
+.coverage
+.tox/
+.cache/
+pytest_cache/
+nosetests.xml
+coverage.xml
+
+# Archivos de Streamlit
+.streamlit/config.toml
+.streamlit/secrets.toml
