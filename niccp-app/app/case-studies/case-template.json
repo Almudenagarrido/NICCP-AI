@@ -1,0 +1,32 @@
+{
+  "general-data": {
+    "name": "",
+    "description": ""
+  },
+  "financial-electricity-inputs": {
+    "expected-non-technical-losses": "",
+    "tax-rate": "",
+    "trade-receivables-days-of-revenues": "",
+    "trade-payables-days-of-opex-costs": ""
+  },
+  "financial-lpg-inputs": {
+    "expected-non-technical-losses": "",
+    "tax-rate": "",
+    "trade-receivables-days-of-revenues": "",
+    "trade-payables-days-of-opex-costs": ""
+  },
+  "ebitda-margin-op-ex-cleanstep": {
+    "percent-ebitda-margin": "",
+    "opex-subsidies-cleanstep": ""
+  },
+  "ebitda-margin-op-ex-aligned": {
+    "percent-ebitda-margin": "",
+    "opex-subsidies-aligned": ""
+  },
+  "co2-carbon-finance-inputs": {
+    "co2-certificate-percent-from-total-co2-avoided": "",
+    "liquidity": "",
+    "price-per-ton": "",
+    "number-of-years-that-you-could-sell-those-carbon-credits": ""
+  }
+}
