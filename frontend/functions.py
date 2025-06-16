@@ -1,8 +1,10 @@
 import streamlit as st
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode,JsCode
 import pandas as pd
 import numpy as np
 import requests
 from io import BytesIO
+import datetime
 
 
 class GeneralInformation:
@@ -19,11 +21,20 @@ class GeneralInformation:
         self.sheet_name = self.sheet_map.get(subsection)
         self.df = None
         self.edited_df = None
+        self.non_editable_columns = ["Inputs", "Units"]
+        self.percentage_rows = [
+                "Expected non-technical losses",
+                "Tax rate",
+                "% EBITDA Margin",
+                "OPEX subsidies",
+                "CO2 certificate",
+                "Liquidity"
+        ]
 
     def fetch_and_load(self):
         res = requests.get(self.get_url)
         if res.status_code != 200:
-            st.error("Could not load 'general-information.xlsm'")
+            st.error("Could not load 'general-information.xlsx'")
             return False
 
         if not self.sheet_name:
@@ -31,30 +42,90 @@ class GeneralInformation:
             return False
 
         file_data = BytesIO(res.content)
-        self.df = pd.read_excel(file_data, sheet_name=self.sheet_name, engine="openpyxl", index_col=0)
+        self.df = pd.read_excel(file_data, sheet_name=self.sheet_name, engine="openpyxl")
         return True
 
     def show_excel_editor(self):
         st.subheader(self.subsection)
-        self.edited_df = st.data_editor(self.df, num_rows="dynamic")
+        df = self.df.copy()
+        gb = GridOptionsBuilder.from_dataframe(df)
 
+        for col in df.columns:
+            if col in self.non_editable_columns:
+                gb.configure_column(col, editable=False)
+            else:
+                gb.configure_column(col, editable=True)
+
+        grid_options = gb.build()
+        grid_response = AgGrid(
+            df,
+            gridOptions=grid_options,
+            update_mode=GridUpdateMode.VALUE_CHANGED,
+            allow_unsafe_jscode=True,
+            enable_enterprise_modules=False
+        )
+        self.edited_df = pd.DataFrame(grid_response["data"])
+
+    def cell_validations(self, df):
+        invalid_cells = []
+
+        for index, row in df.iterrows():
+            row_label = str(row.get("Inputs", "")).lower()
+            is_percentage = any(name.lower() in row_label for name in self.percentage_rows)
+
+            for col in df.columns:
+                if col in self.non_editable_columns:
+                    continue
+
+                value = row[col]
+                try:
+                    if value == "-" or pd.isna(value):
+                        continue
+
+                    num_value = float(value)
+
+                    if is_percentage:
+                        if not (0 <= num_value <= 100):
+                            invalid_cells.append((index, row["Inputs"], col, value))
+                    else:
+                        if num_value < 0:
+                            invalid_cells.append((index, row["Inputs"], col, value))
+
+                except Exception:
+                    invalid_cells.append((index, row["Inputs"], col, value))
+
+        return invalid_cells
+               
     def save_changes(self):
-        self.edited_df = self.edited_df.replace([np.nan], "-")
-        data_json = self.edited_df.reset_index().to_dict(orient="records")
+        df = self.edited_df.copy()
+        df = df[self.df.columns]
+        
+        invalid_cells = self.cell_validations(df)
+        if invalid_cells:
+            for _, input_name, col, value in invalid_cells:
+                st.warning(f"Invalid value '{value}' in row '{input_name}' (column '{col}')")
+            st.error("Fix validation errors before saving.")
+            return
+
+        df = df.replace([np.nan], "-")
+        data_json = df.reset_index(drop=True).to_dict(orient="records")
         payload = {
             "sheet_name": self.sheet_name,
             "data": data_json
         }
         res = requests.post(self.post_url, json=payload)
         if res.status_code == 200:
-            st.success("Changes saved correctly in 'general-information.xlsm'")
+            st.success("Changes saved correctly in 'general-information.xlsx'")
         else:
             st.error("Error saving the changes, try again later.")
 
     def __call__(self):
+        
         if not self.fetch_and_load():
             return
+        
         self.show_excel_editor()
+        
         if st.button("Save changes"):
             self.save_changes()
 
