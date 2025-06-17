@@ -1,10 +1,8 @@
 import streamlit as st
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import pandas as pd
-import numpy as np
 import requests
 from io import BytesIO
-import datetime
 
 
 class GeneralInformation:
@@ -24,6 +22,19 @@ class GeneralInformation:
                 "CO2 certificate",
                 "Liquidity"
         ]
+
+    def get_financial_markets(self):
+        try:
+            res = requests.get(self.get_url)
+            if res.status_code != 200:
+                st.error("The file 'general-information.xlsx' was not found.")
+                return []
+            file_data = BytesIO(res.content)
+            xls = pd.ExcelFile(file_data)
+            return xls.sheet_names
+        except Exception as e:
+            st.error(f"Error fetching financial markets: {e}")
+            return []
 
     def fetch_and_load(self):
         res = requests.get(self.get_url)
@@ -153,6 +164,19 @@ class GeneralInformation:
                 except Exception as e:
                     st.error(f"Failed to connect to backend: {e}")
 
+    def delete_market(self, sheet_name):
+        url = "http://localhost:8000/delete-market"
+        try:
+            response = requests.post(url, json={"name": sheet_name})
+            if response.status_code == 200:
+                return True
+            else:
+                st.error(f"Failed to delete '{sheet_name}'. Server responded with {response.status_code}.")
+                return False
+        except Exception as e:
+            st.error(f"Error deleting market: {e}")
+            return False
+
     def __call__(self):
 
         if self.subsection == "Add New Market":
@@ -172,19 +196,23 @@ class GeneralInformation:
             st.rerun()
 
 
-def manage_technoeconomic_models():
+class TechnoEconomicModels:
 
-    res = requests.get("http://localhost:8000/technoeconomic-models")
-    if res.status_code == 200:
-        files = res.json().get("files", [])
-        model = st.selectbox("Manage techno-economic models", files)
-        if model:
-            file_res = requests.get(f"http://localhost:8000/technoeconomic-models/{model}")
-            if file_res.status_code == 200:
-                data = file_res.content
-                df = pd.read_excel(BytesIO(data))
-                st.write(df)
-            else:
-                st.error("Failed to download the file")
-    else:
-        st.error("Failed to fetch the list of case studies")
+    def __init__(self):
+        self.api_base = "http://localhost:8000/technoeconomic-models"
+
+    def manage_technoeconomic_models(self):
+        res = requests.get(self.api_base)
+        if res.status_code == 200:
+            files = res.json().get("files", [])
+            model = st.selectbox("Manage techno-economic models", files)
+            if model:
+                file_res = requests.get(f"{self.api_base}/{model}")
+                if file_res.status_code == 200:
+                    data = file_res.content
+                    df = pd.read_excel(BytesIO(data))
+                    st.write(df)
+                else:
+                    st.error("Failed to download the file")
+        else:
+            st.error("Failed to fetch the list of case studies")

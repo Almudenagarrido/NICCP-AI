@@ -22,6 +22,7 @@ class MarketName(BaseModel):
 app = FastAPI()
 
 
+# General Information
 @app.get("/general-information")
 def get_general_information():
     if not os.path.exists(GENERAL_INFORMATION_PATH):
@@ -121,6 +122,7 @@ def delete_market(market: MarketName):
     return {"message": f"Market '{sheet_to_delete}' deleted successfully."}
 
 
+# Techno-Economic Models
 @app.get("/technoeconomic-models")
 def list_techno_models():
     files = [f for f in os.listdir(TECHNOECONOMIC_MODELS_DIR)]
