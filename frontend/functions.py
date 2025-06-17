@@ -1,5 +1,5 @@
 import streamlit as st
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode,JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import pandas as pd
 import numpy as np
 import requests
@@ -43,13 +43,18 @@ class GeneralInformation:
 
         file_data = BytesIO(res.content)
         self.df = pd.read_excel(file_data, sheet_name=self.sheet_name, engine="openpyxl")
+
+        for col in self.df.columns:
+            if col not in ["Inputs", "Units"]:
+                self.df[col] = pd.to_numeric(self.df[col].replace("-", pd.NA), errors="coerce")
+        
         return True
 
     def show_excel_editor(self):
         st.subheader(self.subsection)
         df = self.df.copy()
         gb = GridOptionsBuilder.from_dataframe(df)
-
+        
         for col in df.columns:
             if col in self.non_editable_columns:
                 gb.configure_column(col, editable=False)
@@ -107,7 +112,6 @@ class GeneralInformation:
             st.error("Fix validation errors before saving.")
             return
 
-        df = df.replace([np.nan], "-")
         data_json = df.reset_index(drop=True).to_dict(orient="records")
         payload = {
             "sheet_name": self.sheet_name,
@@ -119,6 +123,13 @@ class GeneralInformation:
         else:
             st.error("Error saving the changes, try again later.")
 
+    def reset_sheet(self, sheet_name: str):
+        response = requests.post("http://localhost:8000/reset-general-information", json={"sheet_name": sheet_name, "data": []})
+        if response.status_code == 200:
+            st.success(response.json().get("message", "Sheet reset"))
+        else:
+            st.error(response.json().get("error", "Something went wrong"))
+
     def __call__(self):
         
         if not self.fetch_and_load():
@@ -126,8 +137,12 @@ class GeneralInformation:
         
         self.show_excel_editor()
         
-        if st.button("Save changes"):
+        if st.button("Save"):
             self.save_changes()
+
+        if st.button("Reset"):
+            self.reset_sheet(self.sheet_name)
+            self.show_excel_editor()
 
 
 def manage_technoeconomic_models():

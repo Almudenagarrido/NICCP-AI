@@ -25,7 +25,7 @@ def get_general_information():
         if os.path.exists(TEMPLATE_PATH):
             shutil.copy(TEMPLATE_PATH, GENERAL_INFORMATION_PATH)
         else:
-            return {"error": "The template of the file for the general information was not found"}
+            return {"error": "Template file is missing"}
     
     return FileResponse(
         GENERAL_INFORMATION_PATH,
@@ -46,6 +46,24 @@ async def save_general_information(update: SheetUpdate):
         df_new.to_excel(writer, sheet_name=update.sheet_name, index=False)
 
     return {"message": "The file with the general information was updated successfully"}
+
+@app.post("/reset-general-information")
+def reset_general_information(update: SheetUpdate):
+    if not os.path.exists(GENERAL_INFORMATION_PATH):
+        return {"error": "General information file does not exist"}
+    if not os.path.exists(TEMPLATE_PATH):
+        return {"error": "Template file is missing"}
+
+    try:
+        template_df = pd.read_excel(TEMPLATE_PATH, sheet_name=update.sheet_name)
+
+        with pd.ExcelWriter(GENERAL_INFORMATION_PATH, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+            template_df.to_excel(writer, sheet_name=update.sheet_name, index=False)
+
+        return {"message": f"'{update.sheet_name}' was reset to template version"}
+
+    except Exception as e:
+        return {"error": f"Failed to reset: {str(e)}"}
 
 
 @app.get("/technoeconomic-models")

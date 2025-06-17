@@ -76,7 +76,6 @@ def sidebar():
             if st.button("Financial LPG Inputs"):
                 st.session_state.subsection = "Financial LPG Inputs"
             if st.button("CO2 - Carbon Finance Inputs"):
-                
                 st.session_state.subsection = "CO2 - Carbon Finance Inputs"
             
             st.session_state.page = "General Information"
