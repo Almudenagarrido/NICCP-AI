@@ -1,10 +1,53 @@
 import streamlit as st
 import base64
+import pandas as pd
+import requests
+from io import BytesIO
 
 def get_base64_of_bin_file(bin_file):
     with open(bin_file, 'rb') as f:
         data = f.read()
     return base64.b64encode(data).decode()
+
+def start_content(padding_top=30, padding_bottom=10):
+    st.markdown(f"""
+    <style>
+    .app-content {{
+        padding-top: {padding_top}px;
+        padding-bottom: {padding_bottom}px;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+    st.markdown('<div class="app-content">', unsafe_allow_html=True)
+
+def end_content():
+    st.markdown('</div>', unsafe_allow_html=True)
+
+def get_financial_markets():
+    url = "http://localhost:8000/general-information"
+    res = requests.get(url)
+    if res.status_code != 200:
+        st.error("The file 'general-information.xlsx' was not found.")
+        return []
+    file_data = BytesIO(res.content)
+    xls = pd.ExcelFile(file_data)
+    sheets = xls.sheet_names
+
+    return sheets
+
+def delete_market(sheet_name):
+    url = "http://localhost:8000/delete-market"
+    try:
+        response = requests.post(url, json={"name": sheet_name})
+        if response.status_code == 200:
+            return True
+        else:
+            st.error(f"Failed to delete '{sheet_name}'. Server responded with {response.status_code}.")
+            return False
+    except Exception as e:
+        st.error(f"Error deleting market: {e}")
+        return False
+    
 
 def header():
 
@@ -48,40 +91,35 @@ def header():
                 <img src="data:image/png;base64,{iit_base64}" />
                 </div>''', unsafe_allow_html=True)
 
-def start_content(padding_top=30, padding_bottom=10):
-    st.markdown(f"""
-    <style>
-    .app-content {{
-        padding-top: {padding_top}px;
-        padding-bottom: {padding_bottom}px;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-    st.markdown('<div class="app-content">', unsafe_allow_html=True)
-
-def end_content():
-    st.markdown('</div>', unsafe_allow_html=True)
-
 def sidebar():
     if "page" not in st.session_state:
         st.session_state.page = None
     if "subsection" not in st.session_state:
         st.session_state.subsection = None
 
+    sheets = get_financial_markets()
+
     with st.sidebar:
         with st.expander("General Information", expanded=True):
             
-            if st.button("Financial Electricity Inputs"):
-                st.session_state.subsection = "Financial Electricity Inputs"
-            if st.button("Financial LPG Inputs"):
-                st.session_state.subsection = "Financial LPG Inputs"
-            if st.button("CO2 - Carbon Finance Inputs"):
-                st.session_state.subsection = "CO2 - Carbon Finance Inputs"
+            for sheet in sheets:
+                if st.button(f"{sheet} Financial Inputs"):
+                    st.session_state.subsection = f"{sheet}"
+
+            st.markdown("---")
+            if st.button("➕ Add New Market"):
+                st.session_state.subsection = "Add New Market"
             
             st.session_state.page = "General Information"
-
             if st.session_state.page == "General Information" and st.session_state.subsection is None:
-                st.session_state.subsection = "Financial Electricity Inputs"
+                if sheets:
+                    st.session_state.subsection = f"{sheets[0]}"
+            
+            market_to_delete = st.selectbox("Delete Market", options=sheets)
+            if st.button("🗑️"):
+                delete_market(market_to_delete)
+                st.session_state.subsection = f"{sheets[0]}"
+                st.rerun()
 
         if st.button("Manage Techno-Economic Models"):
             st.session_state.page = "Manage Techno-Economic Models"

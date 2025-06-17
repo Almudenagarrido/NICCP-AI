@@ -10,15 +10,9 @@ import datetime
 class GeneralInformation:
 
     def __init__(self, subsection):
-        self.subsection = subsection
-        self.sheet_map = {
-            "Financial Electricity Inputs": "Electricity",
-            "Financial LPG Inputs": "LPG",
-            "CO2 - Carbon Finance Inputs": "Carbon"
-        }
         self.get_url = "http://localhost:8000/general-information"
         self.post_url = "http://localhost:8000/save-general-information"
-        self.sheet_name = self.sheet_map.get(subsection)
+        self.subsection = subsection
         self.df = None
         self.edited_df = None
         self.non_editable_columns = ["Inputs", "Units"]
@@ -37,12 +31,13 @@ class GeneralInformation:
             st.error("Could not load 'general-information.xlsx'")
             return False
 
-        if not self.sheet_name:
+        if not self.subsection:
+            st.write(self.subsection)
             st.warning("No sheet found in file for selected subsection.")
             return False
 
         file_data = BytesIO(res.content)
-        self.df = pd.read_excel(file_data, sheet_name=self.sheet_name, engine="openpyxl")
+        self.df = pd.read_excel(file_data, sheet_name=self.subsection, engine="openpyxl")
 
         for col in self.df.columns:
             if col not in ["Inputs", "Units"]:
@@ -114,7 +109,7 @@ class GeneralInformation:
 
         data_json = df.reset_index(drop=True).to_dict(orient="records")
         payload = {
-            "sheet_name": self.sheet_name,
+            "sheet_name": self.subsection,
             "data": data_json
         }
         res = requests.post(self.post_url, json=payload)
@@ -130,7 +125,39 @@ class GeneralInformation:
         else:
             st.error(response.json().get("error", "Something went wrong"))
 
+    def add_market(self):
+        st.subheader("Add New Market")
+        new_market = st.text_input("Enter name of the new technology: ")
+
+        if st.button("Create Market"):
+            new_market = new_market.strip()
+
+            if new_market == "":
+                st.warning("Market name cannot be empty.")
+            else:
+                try:
+                    response = requests.post(
+                        "http://localhost:8000/add-market", 
+                        json={"name": new_market}
+                    )
+                    if response.status_code == 200:
+                        st.success(f"Market '{new_market}' added successfully.")
+                        st.session_state.subsection = f"{new_market}"
+                        st.rerun()
+                    else:
+                        try:
+                            error_msg = response.json().get("error", "Unknown error occurred.")
+                            st.error(error_msg)
+                        except:
+                            st.error("Error contacting backend.")
+                except Exception as e:
+                    st.error(f"Failed to connect to backend: {e}")
+
     def __call__(self):
+
+        if self.subsection == "Add New Market":
+            self.add_market()
+            return
         
         if not self.fetch_and_load():
             return
@@ -141,8 +168,8 @@ class GeneralInformation:
             self.save_changes()
 
         if st.button("Reset"):
-            self.reset_sheet(self.sheet_name)
-            self.show_excel_editor()
+            self.reset_sheet(self.subsection)
+            st.rerun()
 
 
 def manage_technoeconomic_models():

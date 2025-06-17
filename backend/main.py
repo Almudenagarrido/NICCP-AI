@@ -16,6 +16,9 @@ class SheetUpdate(BaseModel):
     sheet_name: str
     data: List[Dict]
 
+class MarketName(BaseModel):
+    name: str
+
 app = FastAPI()
 
 
@@ -55,7 +58,12 @@ def reset_general_information(update: SheetUpdate):
         return {"error": "Template file is missing"}
 
     try:
-        template_df = pd.read_excel(TEMPLATE_PATH, sheet_name=update.sheet_name)
+        if update.sheet_name not in {"Carbon", "LPG"}:
+            template_sheet = "Electricity"
+        else:
+            template_sheet = update.sheet_name
+        
+        template_df = pd.read_excel(TEMPLATE_PATH, sheet_name=template_sheet)
 
         with pd.ExcelWriter(GENERAL_INFORMATION_PATH, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
             template_df.to_excel(writer, sheet_name=update.sheet_name, index=False)
@@ -64,6 +72,53 @@ def reset_general_information(update: SheetUpdate):
 
     except Exception as e:
         return {"error": f"Failed to reset: {str(e)}"}
+
+@app.post("/add-market")
+def add_market(market: MarketName):
+    if not os.path.exists(GENERAL_INFORMATION_PATH):
+        return {"error": "general-information.xlsx not found"}
+
+    xls = pd.ExcelFile(GENERAL_INFORMATION_PATH, engine="openpyxl")
+
+    if "Electricity" not in xls.sheet_names:
+        return {"error": "Base sheet 'Electricity' not found"}
+
+    df_electricity = pd.read_excel(xls, sheet_name="Electricity", engine="openpyxl")
+    new_sheet_name = market.name
+
+    if new_sheet_name in xls.sheet_names:
+        return {"error": f"The sheet '{new_sheet_name}' already exists."}
+
+    sheets_dict = {sheet: xls.parse(sheet) for sheet in xls.sheet_names}
+    sheets_dict[new_sheet_name] = df_electricity.copy()
+
+    with pd.ExcelWriter(GENERAL_INFORMATION_PATH, engine="openpyxl", mode="w") as writer:
+        for sheet_name, df in sheets_dict.items():
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    return {"message": f"Market '{new_sheet_name}' added successfully."}
+
+@app.post("/delete-market")
+def delete_market(market: MarketName):
+    if not os.path.exists(GENERAL_INFORMATION_PATH):
+        return {"error": "general-information.xlsx not found"}
+
+    xls = pd.ExcelFile(GENERAL_INFORMATION_PATH, engine="openpyxl")
+    sheet_to_delete = market.name
+
+    if sheet_to_delete not in xls.sheet_names:
+        return {"error": f"The sheet '{sheet_to_delete}' does not exist."}
+
+    remaining_sheets = {
+        sheet: xls.parse(sheet)
+        for sheet in xls.sheet_names if sheet != sheet_to_delete
+    }
+
+    with pd.ExcelWriter(GENERAL_INFORMATION_PATH, engine="openpyxl", mode="w") as writer:
+        for name, df in remaining_sheets.items():
+            df.to_excel(writer, sheet_name=name, index=False)
+
+    return {"message": f"Market '{sheet_to_delete}' deleted successfully."}
 
 
 @app.get("/technoeconomic-models")
