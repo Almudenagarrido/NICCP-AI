@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 import os
 import shutil
@@ -125,12 +125,37 @@ def delete_market(market: MarketName):
 # Techno-Economic Models
 @app.get("/technoeconomic-models")
 def list_techno_models():
-    files = [f for f in os.listdir(TECHNOECONOMIC_MODELS_DIR)]
+    valid_extensions = (".xlsx", ".xlsm", ".xls", ".xltx", ".xltm")
+    files = [f for f in os.listdir(TECHNOECONOMIC_MODELS_DIR) if f.endswith(valid_extensions)]
     return {"files": files}
 
 @app.get("/technoeconomic-models/{filename}")
-def get_techno_models(filename: str):
+def get_techno_model(filename: str):
     model_path = os.path.join(TECHNOECONOMIC_MODELS_DIR, filename)
     if os.path.exists(model_path):
-        return FileResponse(model_path, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    return {"error": "Model not found"}
+        return FileResponse(
+            model_path,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            filename=filename
+        )
+    raise HTTPException(status_code=404, detail="Model not found")
+
+@app.delete("/delete-technoeconomic-model/{filename}")
+def delete_techno_model(filename: str):
+    model_path = os.path.join(TECHNOECONOMIC_MODELS_DIR, filename)
+    if os.path.exists(model_path):
+        os.remove(model_path)
+        return {"status": "deleted"}
+    raise HTTPException(status_code=404, detail="Model not found")
+
+@app.post("/upload-technoeconomic-model")
+def upload_techno_model(file: UploadFile = File(...)):
+    valid_extensions = (".xlsx", ".xlsm", ".xls", ".xltx", ".xltm")
+    if not file.filename.endswith(valid_extensions):
+        raise HTTPException(status_code=400, detail="Only Excel files are allowed.")
+
+    save_path = os.path.join(TECHNOECONOMIC_MODELS_DIR, file.filename)
+    with open(save_path, "wb") as f:
+        f.write(file.file.read())
+
+    return {"status": "uploaded"}

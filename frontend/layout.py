@@ -1,5 +1,6 @@
 import streamlit as st
 import base64
+import requests
 import classes as c
 
 def get_base64_of_bin_file(bin_file):
@@ -65,26 +66,32 @@ def header():
                 </div>''', unsafe_allow_html=True)
 
 def sidebar():
-    gi = c.GeneralInformation(st.session_state.get("subsection"))
+
     if "page" not in st.session_state:
-        st.session_state.page = None
+        st.session_state.page = "Techno-Economic Models"
     if "subsection" not in st.session_state:
         st.session_state.subsection = None
+    if "model" not in st.session_state:
+        st.session_state.model = None
 
-    sheets = gi.get_financial_markets()
+    gi = c.GeneralInformation(st.session_state.get("subsection"))
+    tem = c.TechnoEconomicModels(st.session_state.get("subsection"))
 
+    # General Information
     with st.sidebar:
         with st.expander("General Information", expanded=True):
             
+            sheets = gi.get_financial_markets()
             for sheet in sheets:
                 if st.button(f"{sheet} Financial Inputs"):
+                    st.session_state.page = "General Information"
                     st.session_state.subsection = f"{sheet}"
 
             st.markdown("---")
             if st.button("➕ Add New Market"):
-                st.session_state.subsection = "Add New Market"
+                st.session_state.page = "General Information"
+                st.session_state.subsection = "Add"
             
-            st.session_state.page = "General Information"
             if st.session_state.page == "General Information" and st.session_state.subsection is None:
                 if sheets:
                     st.session_state.subsection = f"{sheets[0]}"
@@ -95,9 +102,29 @@ def sidebar():
                     st.session_state.subsection = f"{sheets[0]}"
                     st.rerun()
 
-        if st.button("Manage Techno-Economic Models"):
-            st.session_state.page = "Manage Techno-Economic Models"
-            st.session_state.subsection = None
+    # Techno-Economic Models
+    with st.sidebar:
+        with st.expander("Techno-Economic Models", expanded=True):
+
+            if st.button("Manage Techno-Economic Models"):
+                st.session_state.page = "Techno-Economic Models"
+                st.session_state.subsection = "Manage"
+                st.session_state.model = None
+
+            if st.session_state.model:
+                if st.button("Design Capital Structure"):
+                    st.session_state.page = "Techno-Economic Models"
+                    st.session_state.subsection = "Design Capital Structure"
+                    st.rerun()
+
+                if st.button("Summary Financing"):
+                    st.session_state.page = "Techno-Economic Models"
+                    st.session_state.subsection = "Summary Financing"
+                    st.rerun()
+
+            if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == None:
+                st.session_state.subsection = "Manage"
+                st.session_state.model = None
 
     return st.session_state.page, st.session_state.subsection
 

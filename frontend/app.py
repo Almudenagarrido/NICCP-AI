@@ -11,9 +11,8 @@ API_URL = "http://127.0.0.1:8000"
 if page == "General Information" and subsection:
     c.GeneralInformation(subsection)()
     
-if page == "Manage Techno-Economic Models":
-    techno_models = c.TechnoEconomicModels()
-    techno_models.manage_technoeconomic_models()
+elif page == "Techno-Economic Models" and subsection:
+    c.TechnoEconomicModels(subsection)()
 
 l.end_content()
 l.footer()
