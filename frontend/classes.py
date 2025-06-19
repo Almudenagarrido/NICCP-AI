@@ -2,6 +2,7 @@ import streamlit as st
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 import pandas as pd
 import requests
+import uuid
 from io import BytesIO
 
 
@@ -129,8 +130,8 @@ class GeneralInformation:
         else:
             st.error("Error saving the changes, try again later.")
 
-    def reset_sheet(self, sheet_name: str):
-        response = requests.post("http://localhost:8000/reset-general-information", json={"sheet_name": sheet_name, "data": []})
+    def reset_sheet(self):
+        response = requests.post("http://localhost:8000/reset-general-information", json={"sheet_name": self.subsection, "data": []})
         if response.status_code == 200:
             st.success(response.json().get("message", "Sheet reset"))
         else:
@@ -179,7 +180,7 @@ class GeneralInformation:
 
     def __call__(self):
 
-        if self.subsection == "Add New Market":
+        if self.subsection == "Add":
             self.add_market()
             return
         
@@ -192,27 +193,145 @@ class GeneralInformation:
             self.save_changes()
 
         if st.button("Reset"):
-            self.reset_sheet(self.subsection)
+            self.reset_sheet()
             st.rerun()
 
 
 class TechnoEconomicModels:
+    def __init__(self, subsection):
+        self.subsection = subsection
+        self.subsections = {
+            "Manage": ManageModels(),
+            "Design Capital Structure": DesignCapitalStructure(),
+            "Summary Financing": SummaryFinancing()
+        }
 
-    def __init__(self):
-        self.api_base = "http://localhost:8000/technoeconomic-models"
-
-    def manage_technoeconomic_models(self):
-        res = requests.get(self.api_base)
-        if res.status_code == 200:
-            files = res.json().get("files", [])
-            model = st.selectbox("Manage techno-economic models", files)
-            if model:
-                file_res = requests.get(f"{self.api_base}/{model}")
-                if file_res.status_code == 200:
-                    data = file_res.content
-                    df = pd.read_excel(BytesIO(data))
-                    st.write(df)
-                else:
-                    st.error("Failed to download the file")
+    def __call__(self):
+        if self.subsection in self.subsections:
+            self.subsections[self.subsection].show()
         else:
-            st.error("Failed to fetch the list of case studies")
+            st.info("Seleccione una subsección válida.")
+
+
+class ManageModels:
+    def __init__(self):
+        self.api_base = "http://localhost:8000"
+        self.list_url = f"{self.api_base}/technoeconomic-models"
+        self.get_url = f"{self.api_base}/technoeconomic-models"
+        self.delete_url = f"{self.api_base}/delete-technoeconomic-model"
+        self.upload_url = f"{self.api_base}/upload-technoeconomic-model"
+
+    def list_technoeconomic_models(self):
+        try:
+            res = requests.get(self.list_url)
+            return res.json().get("files", []) if res.status_code == 200 else []
+        except:
+            st.error("Error loading models from server.")
+            return []
+    
+    def get_technoeconomic_model(self, filename):
+        res = requests.get(f"{self.get_url}/{filename}")
+        if res.status_code == 200:
+            return res.content
+        else:
+            return None
+
+    def show_technoeconomic_models(self, files):
+        success, message = None, ""
+        for model in files:
+            clean_name = model.replace(".xlsx", "")
+            col1, col2, col3 = st.columns([0.8, 0.1, 0.1])
+
+            with col1:
+                if st.button(f"📄 {clean_name}"):
+                    st.session_state.model = model
+                    st.session_state.page = "Techno-Economic Models"
+                    st.session_state.subsection = "Design Capital Structure"
+                    st.rerun()
+
+            with col2:
+                content = self.get_technoeconomic_model(model)
+                if content:
+                    st.download_button(
+                        label="⬇️",
+                        data=content,
+                        file_name=model,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+
+            with col3:
+                if st.button("❌", key=f"delete_{model}"):
+                    success, message = self.delete_technoeconomic_model(model)
+
+            if success is True:
+                st.success(message)
+                st.rerun()
+            elif success is False:
+                st.error(message)
+                st.rerun()
+
+    def delete_technoeconomic_model(self, filename):
+        res = requests.delete(f"{self.delete_url}/{filename}")
+        if res.status_code == 200:
+            return True, f"Model '{filename}' deleted successfully."
+        else:
+            return False, "Failed to delete the model."
+
+    def tecnoeconomic_model_uploader(self):
+        st.markdown("---")
+        st.markdown("##### Upload New Techno-Economic Model")
+        if "uploader_key" not in st.session_state:
+            st.session_state["uploader_key"] = str(uuid.uuid4())
+        uploaded_file = st.file_uploader(
+            "", 
+            type=["xlsx", "xlsm", "xls", "xltx", "xltm"], 
+            key=st.session_state["uploader_key"]
+        )
+        valid_excel_extensions = (".xlsx", ".xlsm", ".xls", ".xltx", ".xltm")
+
+        if uploaded_file is not None:
+            if uploaded_file.name.endswith(valid_excel_extensions):
+                upload_success = self.upload_technoeconomic_model(uploaded_file)
+                if upload_success:
+                    st.success(f"File '{uploaded_file.name}' uploaded successfully.")
+                    st.session_state["uploader_key"] = str(uuid.uuid4())
+                    st.rerun()
+                else:
+                    st.error("Upload failed.")
+            else:
+                st.error("Only Excel files are allowed (.xlsx, .xlsm, .xls, .xltx, .xltm).")
+
+    def upload_technoeconomic_model(self, file):
+        try:
+            files = {"file": (file.name, file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+            res = requests.post(self.upload_url, files=files)
+            return res.status_code == 200
+        except Exception as e:
+            st.error(f"Upload error: {e}")
+            return False
+
+    def show(self):
+        st.subheader("Manage Techno-Economic Models")
+        files = self.list_technoeconomic_models()
+
+        if not files:
+            st.info("No techno-economic models available.")
+
+        self.show_technoeconomic_models(files)
+        self.tecnoeconomic_model_uploader()
+        
+
+class DesignCapitalStructure:
+    def __init__(self):
+        self.api_base = "api_base"
+
+    def show(self):
+        pass
+
+
+class SummaryFinancing:
+    def __init__(self):
+        self.api_base = ""
+
+    def show(self):
+        pass
