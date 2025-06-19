@@ -8,9 +8,10 @@ from io import BytesIO
 
 class GeneralInformation:
 
-    def __init__(self, subsection):
-        self.get_url = "http://localhost:8000/general-information"
-        self.post_url = "http://localhost:8000/save-general-information"
+    def __init__(self, api_url, subsection):
+        self.api_base = api_url
+        self.get_url = f"{self.api_base}/general-information"
+        self.post_url = f"{self.api_base}/save-general-information"
         self.subsection = subsection
         self.df = None
         self.edited_df = None
@@ -198,28 +199,32 @@ class GeneralInformation:
 
 
 class TechnoEconomicModels:
-    def __init__(self, subsection):
+    def __init__(self, api_url, subsection, model, design_market):
+        self.api_url = api_url
         self.subsection = subsection
         self.subsections = {
-            "Manage": ManageModels(),
-            "Design Capital Structure": DesignCapitalStructure(),
-            "Summary Financing": SummaryFinancing()
+            "Manage": ManageModels(self.api_url),
+            "Design Capital Structure": DesignCapitalStructure(api_url, subsection, model, design_market),
+            "Summary Financing": SummaryFinancing(self.api_url)
         }
+        self.model = model
+        self.design_market = design_market
 
     def __call__(self):
         if self.subsection in self.subsections:
             self.subsections[self.subsection].show()
         else:
-            st.info("Seleccione una subsección válida.")
+            st.info("Please select a valid subsection.")
 
 
 class ManageModels:
-    def __init__(self):
-        self.api_base = "http://localhost:8000"
+    def __init__(self, api_base):
+        self.api_base = api_base
         self.list_url = f"{self.api_base}/technoeconomic-models"
         self.get_url = f"{self.api_base}/technoeconomic-models"
         self.delete_url = f"{self.api_base}/delete-technoeconomic-model"
         self.upload_url = f"{self.api_base}/upload-technoeconomic-model"
+        self.valid_extensions = ["xlsx", "xlsm", "xls", "xltx", "xltm"]
 
     def list_technoeconomic_models(self):
         try:
@@ -236,17 +241,23 @@ class ManageModels:
         else:
             return None
 
+    def remove_extension(self, filename):
+        for ext in self.valid_extensions:
+            if filename.lower().endswith(f".{ext}"):
+                return filename[: -len(ext) - 1]
+        return filename
+    
     def show_technoeconomic_models(self, files):
         success, message = None, ""
         for model in files:
-            clean_name = model.replace(".xlsx", "")
+            clean_name = self.remove_extension(model)
             col1, col2, col3 = st.columns([0.8, 0.1, 0.1])
 
             with col1:
                 if st.button(f"📄 {clean_name}"):
-                    st.session_state.model = model
                     st.session_state.page = "Techno-Economic Models"
                     st.session_state.subsection = "Design Capital Structure"
+                    st.session_state.model = clean_name
                     st.rerun()
 
             with col2:
@@ -284,13 +295,12 @@ class ManageModels:
             st.session_state["uploader_key"] = str(uuid.uuid4())
         uploaded_file = st.file_uploader(
             "", 
-            type=["xlsx", "xlsm", "xls", "xltx", "xltm"], 
+            type=self.valid_extensions, 
             key=st.session_state["uploader_key"]
         )
-        valid_excel_extensions = (".xlsx", ".xlsm", ".xls", ".xltx", ".xltm")
 
         if uploaded_file is not None:
-            if uploaded_file.name.endswith(valid_excel_extensions):
+            if any(uploaded_file.name.lower().endswith(f".{ext}") for ext in self.valid_extensions):
                 upload_success = self.upload_technoeconomic_model(uploaded_file)
                 if upload_success:
                     st.success(f"File '{uploaded_file.name}' uploaded successfully.")
@@ -299,7 +309,7 @@ class ManageModels:
                 else:
                     st.error("Upload failed.")
             else:
-                st.error("Only Excel files are allowed (.xlsx, .xlsm, .xls, .xltx, .xltm).")
+                st.error(f"Only Excel files are allowed: {', '.join(self.valid_extensions)}")
 
     def upload_technoeconomic_model(self, file):
         try:
@@ -322,16 +332,61 @@ class ManageModels:
         
 
 class DesignCapitalStructure:
-    def __init__(self):
-        self.api_base = "api_base"
+    def __init__(self, api_base, subsection, model, design_market):
+        self.api_base = api_base
+        self.get_url = f"{self.api_base}/design-capital-structure"
+        self.subsection = subsection
+        self.model = model
+        self.design_market = design_market
+        self.df = None
+    
+    def fetch_and_load(self):
+        url = f"{self.get_url}/{self.model}"
+        res = requests.get(url)
+        if res.status_code != 200:
+            st.error(f"Could not load 'design-capital-structure-{self.model}.xlsx'")
+            return False
+
+        if not self.subsection:
+            st.warning("No sheet found in file for selected subsection.")
+            return False
+        
+        file_data = BytesIO(res.content)
+        self.df = pd.read_excel(file_data, sheet_name=self.design_market, engine="openpyxl")
+
+        return True
+        
+    def show_excel_editor(self):
+        st.subheader(f"{self.design_market} Financial Plan")
+        df = self.df.copy()
+        gb = GridOptionsBuilder.from_dataframe(df)
+        
+        """for col in df.columns:
+            if col in self.non_editable_columns:
+                gb.configure_column(col, editable=False)
+            else:
+                gb.configure_column(col, editable=True)"""
+
+        grid_options = gb.build()
+        grid_response = AgGrid(
+            df,
+            gridOptions=grid_options,
+            update_mode=GridUpdateMode.VALUE_CHANGED,
+            allow_unsafe_jscode=True,
+            enable_enterprise_modules=False
+        )
+        self.edited_df = pd.DataFrame(grid_response["data"])
 
     def show(self):
-        pass
+        if not self.fetch_and_load():
+            return
+        
+        self.show_excel_editor()
 
 
 class SummaryFinancing:
-    def __init__(self):
-        self.api_base = ""
+    def __init__(self, api_base):
+        self.api_base = api_base
 
     def show(self):
         pass

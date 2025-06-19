@@ -9,8 +9,12 @@ from typing import List, Dict
 
 GENERAL_INFORMATION_FOLDER = "./general-information"
 GENERAL_INFORMATION_PATH = os.path.join(GENERAL_INFORMATION_FOLDER, "general-information.xlsx")
-TEMPLATE_PATH = os.path.join(GENERAL_INFORMATION_FOLDER, "general-information-template.xlsx")
+GENERAL_INFORMATION_TEMPLATE = os.path.join(GENERAL_INFORMATION_FOLDER, "general-information-template.xlsx")
 TECHNOECONOMIC_MODELS_DIR = "technoeconomic-models"
+DESIGN_CAPITAL_STRUCTURE_FOLDER = "./design-capital-structure"
+DESIGN_CAPITAL_STRUCTURE_TEMPLATE = os.path.join(DESIGN_CAPITAL_STRUCTURE_FOLDER, "design-capital-structure-template.xlsx")
+DESIGN_CAPITAL_STRUCTURE_MODEL = os.path.join(DESIGN_CAPITAL_STRUCTURE_FOLDER, "design-capital-structure-")
+
 
 class SheetUpdate(BaseModel):
     sheet_name: str
@@ -26,8 +30,8 @@ app = FastAPI()
 @app.get("/general-information")
 def get_general_information():
     if not os.path.exists(GENERAL_INFORMATION_PATH):
-        if os.path.exists(TEMPLATE_PATH):
-            shutil.copy(TEMPLATE_PATH, GENERAL_INFORMATION_PATH)
+        if os.path.exists(GENERAL_INFORMATION_TEMPLATE):
+            shutil.copy(GENERAL_INFORMATION_TEMPLATE, GENERAL_INFORMATION_PATH)
         else:
             return {"error": "Template file is missing"}
     
@@ -55,7 +59,7 @@ async def save_general_information(update: SheetUpdate):
 def reset_general_information(update: SheetUpdate):
     if not os.path.exists(GENERAL_INFORMATION_PATH):
         return {"error": "General information file does not exist"}
-    if not os.path.exists(TEMPLATE_PATH):
+    if not os.path.exists(GENERAL_INFORMATION_TEMPLATE):
         return {"error": "Template file is missing"}
 
     try:
@@ -64,7 +68,7 @@ def reset_general_information(update: SheetUpdate):
         else:
             template_sheet = update.sheet_name
         
-        template_df = pd.read_excel(TEMPLATE_PATH, sheet_name=template_sheet)
+        template_df = pd.read_excel(GENERAL_INFORMATION_TEMPLATE, sheet_name=template_sheet)
 
         with pd.ExcelWriter(GENERAL_INFORMATION_PATH, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
             template_df.to_excel(writer, sheet_name=update.sheet_name, index=False)
@@ -159,3 +163,22 @@ def upload_techno_model(file: UploadFile = File(...)):
         f.write(file.file.read())
 
     return {"status": "uploaded"}
+
+
+# Design Capital Structure
+@app.get("/design-capital-structure/{model}")
+async def get_design_capital_structure(model: str):
+    FULL_DESIGN_MODEL_PATH = f"{DESIGN_CAPITAL_STRUCTURE_MODEL}{model}.xlsx"
+    
+    if not os.path.exists(FULL_DESIGN_MODEL_PATH):
+        if os.path.exists(DESIGN_CAPITAL_STRUCTURE_TEMPLATE):
+            shutil.copy(DESIGN_CAPITAL_STRUCTURE_TEMPLATE, FULL_DESIGN_MODEL_PATH)
+        else:
+            return {"error": "Template file is missing"}
+    
+    return FileResponse(
+        FULL_DESIGN_MODEL_PATH,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="general-information.xlsx"
+    )
+
