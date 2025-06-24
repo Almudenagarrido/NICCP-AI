@@ -21,7 +21,6 @@ def start_content(padding_top=30, padding_bottom=10):
 def end_content():
     st.markdown('</div>', unsafe_allow_html=True)
 
-
 def header():
 
     niccp_path = "public/niccp-logo.png"
@@ -112,15 +111,19 @@ def sidebar():
 
     # Techno-Economic Models
     with st.sidebar:
-        st.markdown("##### Techno-Economic Models")
+        if st.session_state.model: 
+            st.markdown(f"##### Techno-Economic Model: {st.session_state.model}")
+        else:
+            st.markdown("##### Techno-Economic Models")
 
         if st.button("Manage Techno-Economic Models"):
             st.session_state.page = "Techno-Economic Models"
             st.session_state.subsection = "Manage"
             st.session_state.model = None
+            st.rerun()
 
         if st.session_state.model:
-            with st.expander("Design Capital Structure", expanded=False):
+            with st.expander("Design Capital Structure", expanded=True):
                 for sheet in market_sheets:
                     if sheet == "Carbon":
                         sheet = "JUST ACCESS"
@@ -128,7 +131,6 @@ def sidebar():
                         st.session_state.page = "Techno-Economic Models"
                         st.session_state.subsection = "Design Capital Structure"
                         st.session_state.design_market = f"{sheet}"
-                        st.write(f"Se ha cambiado de design_market a: {sheet}")
                         st.rerun()
 
                 if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == "Design Capital Structure" and st.session_state.design_market == None:
