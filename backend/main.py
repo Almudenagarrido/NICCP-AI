@@ -16,6 +16,9 @@ TECHNOECONOMIC_MODELS_DIR = "technoeconomic-models"
 DESIGN_CAPITAL_STRUCTURE_FOLDER = "./design-capital-structure"
 DESIGN_CAPITAL_STRUCTURE_TEMPLATE = os.path.join(DESIGN_CAPITAL_STRUCTURE_FOLDER, "design-capital-structure-template.xlsx")
 DESIGN_CAPITAL_STRUCTURE_MODEL = os.path.join(DESIGN_CAPITAL_STRUCTURE_FOLDER, "design-capital-structure-")
+TECHNOECONOMIC_INPUTS_FOLDER = "./technoeconomic-inputs"
+TECHNOECONOMIC_INPUTS_TEMPLATE = os.path.join(TECHNOECONOMIC_INPUTS_FOLDER, "technoeconomic-inputs-template.xlsx")
+TECHNOECONOMIC_INPUTS_MODEL = os.path.join(TECHNOECONOMIC_INPUTS_FOLDER, "technoeconomic-inputs-")
 
 VALID_EXTENSIONS = (".xlsx", ".xlsm", ".xls", ".xltx", ".xltm")
 START_YEAR_TECHNO_MODELS = None
@@ -37,7 +40,7 @@ app = FastAPI()
 @app.get("/general-information")
 def get_general_information():
     global START_YEAR_TECHNO_MODELS, END_YEAR_TECHNO_MODELS
-
+    
     techno_models = {
         os.path.splitext(f)[0] 
         for f in os.listdir(TECHNOECONOMIC_MODELS_DIR) 
@@ -51,9 +54,21 @@ def get_general_information():
             return {"error": "Template file is missing"}
     
     wb = load_workbook(GENERAL_INFORMATION_PATH)
-    year_row = 1
 
     for ws in wb.worksheets:
+        year_row = None
+        for row in range(1, ws.max_row + 1):
+            for col in range(1, ws.max_column + 1):
+                cell_val = ws.cell(row=row, column=col).value
+                if isinstance(cell_val, str) and cell_val.strip().lower() == "baseline":
+                    year_row = row
+                    break
+            if year_row:
+                break
+        
+        if year_row is None:
+            continue
+
         cols_to_delete = []
         for col in range(3, ws.max_column + 1):
             cell_val = ws.cell(row=year_row, column=col).value
@@ -204,7 +219,17 @@ def delete_market(market: MarketName):
 # Techno-Economic Models
 @app.get("/technoeconomic-models")
 def list_techno_models():
+    global START_YEAR_TECHNO_MODELS, END_YEAR_TECHNO_MODELS
+    
     files = [f for f in os.listdir(TECHNOECONOMIC_MODELS_DIR) if f.endswith(VALID_EXTENSIONS)]
+
+    if files and START_YEAR_TECHNO_MODELS == None:
+            file_path = os.path.join(TECHNOECONOMIC_MODELS_DIR, files[0])
+            with open(file_path, "rb") as f:
+                existing_bytes = f.read()
+            file = load_workbook(filename=BytesIO(existing_bytes), data_only=True, read_only=True)
+            START_YEAR_TECHNO_MODELS = file["Contents"]["G8"].value
+            END_YEAR_TECHNO_MODELS = file["Contents"]["G24"].value
 
     return {"files": files}
 
@@ -306,9 +331,21 @@ async def get_design_capital_structure(model: str):
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
 
     wb = load_workbook(FULL_DESIGN_MODEL_PATH)
-    year_row = 13
 
     for ws in wb.worksheets:
+        year_row = None
+        for row in range(1, ws.max_row + 1):
+            for col in range(1, ws.max_column + 1):
+                cell_val = ws.cell(row=row, column=col).value
+                if isinstance(cell_val, str) and cell_val.strip().lower() == "baseline":
+                    year_row = row
+                    break
+            if year_row:
+                break
+        
+        if year_row is None:
+            continue
+
         cols_to_delete = []
         for col in range(6, ws.max_column + 1):
             cell_val = ws.cell(row=year_row, column=col).value
@@ -380,3 +417,80 @@ def reset_design_capital_structure(update: SheetUpdate):
 
     except Exception as e:
         return {"error": f"Failed to reset: {str(e)}"}
+    
+
+# Techno-Economic Inputs
+@app.get("/technoeconomic-inputs/{model}")
+async def get_technoeconomic_inputs(model: str):
+    FULL_TECHNO_MODEL_PATH = f"{TECHNOECONOMIC_INPUTS_MODEL}{model}.xlsx"
+    print(FULL_TECHNO_MODEL_PATH)
+    if not os.path.exists(GENERAL_INFORMATION_PATH):
+        return {"error": "general-information.xlsx not found"}
+
+    if not os.path.exists(TECHNOECONOMIC_INPUTS_TEMPLATE):
+        return {"error": "Template file is missing"}
+
+    if not os.path.exists(FULL_TECHNO_MODEL_PATH):
+        shutil.copy(TECHNOECONOMIC_INPUTS_TEMPLATE, FULL_TECHNO_MODEL_PATH)
+
+    xls_general = pd.ExcelFile(GENERAL_INFORMATION_PATH, engine="openpyxl")
+    general_sheets = xls_general.sheet_names
+    expected_sheets = [
+        "JUST ACCESS" if name.strip().lower() == "carbon" else name
+        for name in general_sheets
+    ]
+
+    xls_model = pd.ExcelFile(FULL_TECHNO_MODEL_PATH, engine="openpyxl")
+    existing_sheets = xls_model.sheet_names
+
+    xls_template = pd.ExcelFile(TECHNOECONOMIC_INPUTS_TEMPLATE, engine="openpyxl")
+    df_template = pd.read_excel(xls_template, sheet_name="Electricity", engine="openpyxl")
+
+    missing_sheets = [s for s in expected_sheets if s not in existing_sheets]
+    if missing_sheets:
+        sheets_dict = {
+            sheet: pd.read_excel(xls_model, sheet_name=sheet, header=None)
+            for sheet in existing_sheets
+        }
+        for missing in missing_sheets:
+            sheets_dict[missing] = df_template.copy()
+        with pd.ExcelWriter(FULL_TECHNO_MODEL_PATH, engine="openpyxl", mode="w") as writer:
+            for sheet_name, df in sheets_dict.items():
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+    wb = load_workbook(FULL_TECHNO_MODEL_PATH)
+
+    for ws in wb.worksheets:
+        year_row = None
+        for row in range(1, ws.max_row + 1):
+            for col in range(1, ws.max_column + 1):
+                cell_val = ws.cell(row=row, column=col).value
+                if isinstance(cell_val, str) and cell_val.strip().lower() == "baseline":
+                    year_row = row
+                    break
+            if year_row:
+                break
+
+        if year_row is None:
+            continue
+
+        cols_to_delete = []
+        for col in range(3, ws.max_column + 1):
+            cell_val = ws.cell(row=year_row, column=col).value
+            try:
+                year = int(cell_val)
+                if year < START_YEAR_TECHNO_MODELS or year > END_YEAR_TECHNO_MODELS:
+                    cols_to_delete.append(col)
+            except (TypeError, ValueError):
+                continue
+
+        for col_idx in reversed(cols_to_delete):
+            ws.delete_cols(col_idx)
+
+    wb.save(FULL_TECHNO_MODEL_PATH)
+
+    return FileResponse(
+        FULL_TECHNO_MODEL_PATH,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=FULL_TECHNO_MODEL_PATH
+    )

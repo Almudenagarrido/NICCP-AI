@@ -1,19 +1,21 @@
 import streamlit as st
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from st_aggrid.shared import JsCode
 import pandas as pd
 import numpy as np
 import requests
 import uuid
 from io import BytesIO
+import time
 
 
 class GeneralInformation:
 
-    def __init__(self, api_url, subsection):
+    def __init__(self, api_url, design_market):
         self.api_base = api_url
         self.get_url = f"{self.api_base}/general-information"
         self.post_url = f"{self.api_base}/save-general-information"
-        self.subsection = subsection
+        self.design_market = design_market
         self.df = None
         self.edited_df = None
         self.non_editable_columns = ["Inputs", "Units"]
@@ -46,13 +48,13 @@ class GeneralInformation:
             st.error("Could not load 'general-information.xlsx'")
             return False
 
-        if not self.subsection:
-            st.write(self.subsection)
-            st.warning("No sheet found in file for selected subsection.")
+        if not self.design_market:
+            st.write(self.design_market)
+            st.warning("No sheet found in file for selected technology market.")
             return False
 
         file_data = BytesIO(res.content)
-        self.df = pd.read_excel(file_data, sheet_name=self.subsection, engine="openpyxl")
+        self.df = pd.read_excel(file_data, sheet_name=self.design_market, engine="openpyxl")
 
         for col in self.df.columns:
             if col not in ["Inputs", "Units"]:
@@ -61,10 +63,10 @@ class GeneralInformation:
         return True
 
     def show_excel_editor(self):
-        st.subheader(self.subsection)
+        st.subheader(self.design_market)
         df = self.df.copy()
         gb = GridOptionsBuilder.from_dataframe(df)
-        height = self.df_heights[self.subsection] if self.subsection in self.df_heights else self.df_heights["Electricity"]
+        height = self.df_heights[self.design_market] if self.design_market in self.df_heights else self.df_heights["Electricity"]
         
         for col in df.columns:
             if col in self.non_editable_columns:
@@ -137,19 +139,19 @@ class GeneralInformation:
         data_json = df.reset_index(drop=True).to_dict(orient="records")
         payload = {
             "model": "",
-            "sheet_name": self.subsection,
+            "sheet_name": self.design_market,
             "data": data_json
         }
         res = requests.post(self.post_url, json=payload)
         if res.status_code == 200:
-            st.success("Changes saved correctly in 'general-information.xlsx'")
+            st.success(f"Changes in '{self.design_market}' saved successfully.")
         else:
             st.error("Error saving the changes, try again later.")
 
     def reset_sheet(self):
-        response = requests.post("http://localhost:8000/reset-general-information", json={"model": "", "sheet_name": self.subsection, "data": []})
+        response = requests.post("http://localhost:8000/reset-general-information", json={"model": "", "sheet_name": self.design_market, "data": []})
         if response.status_code == 200:
-            st.success(response.json().get("message", "Sheet reset"))
+            st.success(f"File '{self.design_market}' reset to template version.")
         else:
             st.error(response.json().get("error", "Something went wrong"))
 
@@ -170,7 +172,7 @@ class GeneralInformation:
                     )
                     if response.status_code == 200:
                         st.success(f"Market '{new_market}' added successfully.")
-                        st.session_state.subsection = f"{new_market}"
+                        st.session_state.design_market = f"{new_market}"
                         st.rerun()
                     else:
                         try:
@@ -196,7 +198,7 @@ class GeneralInformation:
 
     def __call__(self):
 
-        if self.subsection == "Add":
+        if self.design_market == "Add":
             self.add_market()
             return
         
@@ -207,20 +209,24 @@ class GeneralInformation:
         
         if st.button("Save"):
             self.save_changes()
+            time.sleep(1)
             st.rerun()
 
         if st.button("Reset"):
             self.reset_sheet()
+            time.sleep(1)
             st.rerun()
 
 
 class TechnoEconomicModels:
+    
     def __init__(self, api_url, subsection, model, design_market):
         self.api_url = api_url
         self.subsection = subsection
         self.subsections = {
             "Manage": ManageModels(self.api_url),
             "Design Capital Structure": DesignCapitalStructure(api_url, subsection, model, design_market),
+            "Techno-Economic Inputs": TechnoEconomicInputs(api_url, subsection, model, design_market),
             "Summary Financing": SummaryFinancing(self.api_url)
         }
         self.model = model
@@ -234,6 +240,7 @@ class TechnoEconomicModels:
 
 
 class ManageModels:
+    
     def __init__(self, api_base):
         self.api_base = api_base
         self.list_url = f"{self.api_base}/technoeconomic-models"
@@ -349,6 +356,7 @@ class ManageModels:
         
 
 class DesignCapitalStructure:
+    
     def __init__(self, api_base, subsection, model, design_market):
         self.api_base = api_base
         self.get_url = f"{self.api_base}/design-capital-structure"
@@ -493,7 +501,7 @@ class DesignCapitalStructure:
 
         res = requests.post(self.save_url, json=payload)
         if res.status_code == 200:
-            st.success(f"Saved successfully in model '{self.model}'")
+            st.success(f"Changes in '{self.design_market}' saved successfully in '{self.model}'.")
         else:
             st.error(f"Save failed (HTTP {res.status_code}): {res.text}")
 
@@ -506,10 +514,10 @@ class DesignCapitalStructure:
 
         res = requests.post(self.reset_url, json=payload)
         if res.status_code == 200:
-            st.success(res.json().get("message", "Sheet reset"))
-            st.rerun()
+            st.success(f"File '{self.design_market}' of '{self.model}' was reset to template version.")
         else:
             st.error(res.json().get("error", "Something went wrong"))
+    
     def show(self):
         if not self.fetch_and_load():
             return
@@ -518,9 +526,104 @@ class DesignCapitalStructure:
 
         if st.button("Save"):
             self.save_changes()
+            time.sleep(1)
+            st.rerun()
 
         if st.button("Reset"):
             self.reset_sheet()
+            time.sleep(1)
+            st.rerun()
+
+
+class TechnoEconomicInputs:
+    
+    def __init__(self, api_base, subsection, model, design_market):
+        self.api_base = api_base
+        self.general_get_url = f"{self.api_base}/general-information"
+        self.get_url = f"{self.api_base}/technoeconomic-inputs/"
+        self.subsection = subsection
+        self.model = model
+        self.design_market = design_market
+        self.df_general_inputs = None
+        self.df_heights_general_inputs = {"Electricity": 170, "LPG": 260, "C02": 170}
+        self.df = None
+    
+    def fetch_and_load(self, general: bool):
+
+        url = self.general_get_url if general else f"{self.get_url}{self.model}"
+        print(url)
+
+        res = requests.get(url)
+        if res.status_code != 200:
+            if general:
+                st.error("Could not load 'general-information.xlsx'")
+            else:
+                st.error("Could not load 'technoeconomic-inputs.xlsx'")
+            return False
+        
+        if not self.design_market:
+            st.write(self.design_market)
+            st.warning("No sheet found in file for selected technology market.")
+            return False
+        
+        file_data = BytesIO(res.content)
+        if general:
+            if not self.design_market == "C02":
+                self.df_general_inputs = pd.read_excel(file_data, sheet_name=self.design_market, engine="openpyxl")
+            else:
+                self.df_general_inputs = pd.read_excel(file_data, sheet_name="Carbon", engine="openpyxl")
+        else:
+            self.df = pd.read_excel(file_data, sheet_name=self.design_market, engine="openpyxl", header=1)
+
+        if general:
+            for col in self.df_general_inputs.columns:
+                if col not in ["Inputs", "Units"]:
+                    self.df_general_inputs[col] = pd.to_numeric(self.df_general_inputs[col].replace("-", pd.NA), errors="coerce")
+        else:
+            for col in self.df.columns:
+                if col not in ["Inputs", "Type", "Units"]:
+                    self.df[col] = pd.to_numeric(self.df[col].replace("-", pd.NA), errors="coerce")
+
+        return True
+
+    def show_excel_editor(self, general: bool):
+        
+        df = self.df_general_inputs.copy() if general else self.df.copy()
+
+        if general and self.design_market == "LPG":
+            df = df[~df["Inputs"].str.contains("EBITDA", na=False)]
+            df["Inputs"] = df["Inputs"].str.replace("OPEX", "Tariff", regex=False)
+
+        gb = GridOptionsBuilder.from_dataframe(df)
+
+        if general: 
+            height = self.df_heights_general_inputs[self.design_market] if self.design_market in self.df_heights_general_inputs else self.df_heights_general_inputs["Electricity"]
+        else:
+            height = 590
+
+        grid_options = gb.build()
+        grid_response = AgGrid(
+            df,
+            gridOptions=grid_options,
+            update_mode=GridUpdateMode.VALUE_CHANGED,
+            allow_unsafe_jscode=True,
+            enable_enterprise_modules=False,
+            height=height
+        )
+        df = pd.DataFrame(grid_response["data"])
+
+    def show(self):
+        
+        st.subheader(self.design_market)
+        if not self.fetch_and_load(general=True):
+            return
+        
+        self.show_excel_editor(general=True)
+
+        if not self.fetch_and_load(general=False):
+            return
+        
+        self.show_excel_editor(general=False)
 
 
 class SummaryFinancing:

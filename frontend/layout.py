@@ -79,34 +79,34 @@ def sidebar():
 
     # General Information
     with st.sidebar:
-        with st.expander("General Information", expanded=True):
+        with st.expander("General Information", expanded=False):
             
             for sheet in market_sheets:
                 if st.button(f"{sheet} Financial Inputs"):
                     st.session_state.page = "General Information"
-                    st.session_state.subsection = f"{sheet}"
+                    st.session_state.design_market = f"{sheet}"
+                    st.session_state.subsection = None
                     st.session_state.model = None
-                    st.session_state.design_market = None
 
             st.markdown("---")
             if st.button("➕ Add New Market"):
                 st.session_state.page = "General Information"
-                st.session_state.subsection = "Add"
+                st.session_state.design_market = "Add"
+                st.session_state.subsection = None
                 st.session_state.model = None
-                st.session_state.design_market = None
             
-            if st.session_state.page == "General Information" and st.session_state.subsection is None:
+            if st.session_state.page == "General Information" and st.session_state.design_market is None:
                 if market_sheets:
-                    st.session_state.subsection = f"{market_sheets[0]}"
+                    st.session_state.design_market = f"{market_sheets[0]}"
+                    st.session_state.subsection = None
                     st.session_state.model = None
-                    st.session_state.design_market = None
             
             market_to_delete = st.selectbox("Delete Market", options=market_sheets)
             if st.button("🗑️"):
                 if gi.delete_market(market_to_delete):
-                    st.session_state.subsection = f"{market_sheets[0]}"
+                    st.session_state.design_market = f"{market_sheets[0]}"
+                    st.session_state.subsection = None
                     st.session_state.model = None
-                    st.session_state.design_market = None
                     st.rerun()
 
     # Techno-Economic Models
@@ -123,7 +123,7 @@ def sidebar():
             st.rerun()
 
         if st.session_state.model:
-            with st.expander("Design Capital Structure", expanded=True):
+            with st.expander("Design Capital Structure", expanded=False):
                 for sheet in market_sheets:
                     if sheet == "Carbon":
                         sheet = "JUST ACCESS"
@@ -139,6 +139,22 @@ def sidebar():
                     else:               
                         st.session_state.design_market = "JUST ACCESS"
 
+            with st.expander("Techno-Economic Inputs", expanded=False):
+                for sheet in market_sheets:
+                    if sheet == "Carbon":
+                        sheet = "C02"
+                    if st.button(f"{sheet} Inputs"):
+                        st.session_state.page = "Techno-Economic Models"
+                        st.session_state.subsection = "Techno-Economic Inputs"
+                        st.session_state.design_market = f"{sheet}"
+                        st.rerun()
+
+                if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == "Techno-Economic Inputs" and st.session_state.design_market == None:
+                    if not market_sheets[0] == "Carbon":
+                        st.session_state.design_market = market_sheets[0]
+                    else:               
+                        st.session_state.design_market = "C02"
+            
             if st.button("Summary Financing"):
                 st.session_state.page = "Techno-Economic Models"
                 st.session_state.subsection = "Summary Financing"
