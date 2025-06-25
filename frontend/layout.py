@@ -1,6 +1,5 @@
 import streamlit as st
 import base64
-import requests
 import classes as c
 
 def get_base64_of_bin_file(bin_file):
@@ -21,7 +20,6 @@ def start_content(padding_top=30, padding_bottom=10):
 
 def end_content():
     st.markdown('</div>', unsafe_allow_html=True)
-
 
 def header():
 
@@ -73,60 +71,84 @@ def sidebar():
         st.session_state.subsection = None
     if "model" not in st.session_state:
         st.session_state.model = None
+    if "design_market" not in st.session_state:
+        st.session_state.design_market = None
 
-    gi = c.GeneralInformation(st.session_state.get("subsection"))
-    tem = c.TechnoEconomicModels(st.session_state.get("subsection"))
+    gi = c.GeneralInformation("http://127.0.0.1:8000", st.session_state.get("subsection"))
+    market_sheets = gi.get_financial_markets()
 
     # General Information
     with st.sidebar:
         with st.expander("General Information", expanded=True):
             
-            sheets = gi.get_financial_markets()
-            for sheet in sheets:
+            for sheet in market_sheets:
                 if st.button(f"{sheet} Financial Inputs"):
                     st.session_state.page = "General Information"
                     st.session_state.subsection = f"{sheet}"
+                    st.session_state.model = None
+                    st.session_state.design_market = None
 
             st.markdown("---")
             if st.button("➕ Add New Market"):
                 st.session_state.page = "General Information"
                 st.session_state.subsection = "Add"
+                st.session_state.model = None
+                st.session_state.design_market = None
             
             if st.session_state.page == "General Information" and st.session_state.subsection is None:
-                if sheets:
-                    st.session_state.subsection = f"{sheets[0]}"
+                if market_sheets:
+                    st.session_state.subsection = f"{market_sheets[0]}"
+                    st.session_state.model = None
+                    st.session_state.design_market = None
             
-            market_to_delete = st.selectbox("Delete Market", options=sheets)
+            market_to_delete = st.selectbox("Delete Market", options=market_sheets)
             if st.button("🗑️"):
                 if gi.delete_market(market_to_delete):
-                    st.session_state.subsection = f"{sheets[0]}"
+                    st.session_state.subsection = f"{market_sheets[0]}"
+                    st.session_state.model = None
+                    st.session_state.design_market = None
                     st.rerun()
 
     # Techno-Economic Models
     with st.sidebar:
-        with st.expander("Techno-Economic Models", expanded=True):
+        if st.session_state.model: 
+            st.markdown(f"##### Techno-Economic Model: {st.session_state.model}")
+        else:
+            st.markdown("##### Techno-Economic Models")
 
-            if st.button("Manage Techno-Economic Models"):
+        if st.button("Manage Techno-Economic Models"):
+            st.session_state.page = "Techno-Economic Models"
+            st.session_state.subsection = "Manage"
+            st.session_state.model = None
+            st.rerun()
+
+        if st.session_state.model:
+            with st.expander("Design Capital Structure", expanded=True):
+                for sheet in market_sheets:
+                    if sheet == "Carbon":
+                        sheet = "JUST ACCESS"
+                    if st.button(f"{sheet} Financial Plan"):
+                        st.session_state.page = "Techno-Economic Models"
+                        st.session_state.subsection = "Design Capital Structure"
+                        st.session_state.design_market = f"{sheet}"
+                        st.rerun()
+
+                if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == "Design Capital Structure" and st.session_state.design_market == None:
+                    if not market_sheets[0] == "Carbon":
+                        st.session_state.design_market = market_sheets[0]
+                    else:               
+                        st.session_state.design_market = "JUST ACCESS"
+
+            if st.button("Summary Financing"):
                 st.session_state.page = "Techno-Economic Models"
-                st.session_state.subsection = "Manage"
-                st.session_state.model = None
+                st.session_state.subsection = "Summary Financing"
+                st.rerun()
 
-            if st.session_state.model:
-                if st.button("Design Capital Structure"):
-                    st.session_state.page = "Techno-Economic Models"
-                    st.session_state.subsection = "Design Capital Structure"
-                    st.rerun()
+        if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == None:
+            st.session_state.subsection = "Manage"
+            st.session_state.model = None
 
-                if st.button("Summary Financing"):
-                    st.session_state.page = "Techno-Economic Models"
-                    st.session_state.subsection = "Summary Financing"
-                    st.rerun()
-
-            if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == None:
-                st.session_state.subsection = "Manage"
-                st.session_state.model = None
-
-    return st.session_state.page, st.session_state.subsection
+    return st.session_state.page, st.session_state.subsection, st.session_state.model, st.session_state.design_market
 
 def footer():
     st.markdown("""
