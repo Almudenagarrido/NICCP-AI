@@ -9,13 +9,16 @@ from io import BytesIO
 import time
 
 
-class GeneralInformation:
+class FuelMarketInformation:
 
-    def __init__(self, api_url, design_market):
+    def __init__(self, api_url, fuel_market):
         self.api_base = api_url
-        self.get_url = f"{self.api_base}/general-information"
-        self.post_url = f"{self.api_base}/save-general-information"
-        self.design_market = design_market
+        self.get_url = f"{self.api_base}/fuel-market-information"
+        self.save_url = f"{self.api_base}/save-fuel-market-information"
+        self.reset_url = f"{self.api_base}/reset-fuel-market-information"
+        self.add_url = f"{self.api_base}/add-fuel-market"
+        self.delete_url = f"{self.api_base}/delete-fuel-market"
+        self.fuel_market = fuel_market
         self.df = None
         self.edited_df = None
         self.non_editable_columns = ["Inputs", "Units"]
@@ -27,13 +30,13 @@ class GeneralInformation:
                 "CO2 certificate",
                 "Liquidity"
         ]
-        self.df_heights = {"Electricity": 170, "LPG": 350, "Carbon": 170}
+        self.df_heights = {"E-Cooking": 170, "LPG": 350, "Carbon": 170}
 
-    def get_financial_markets(self):
+    def get_fuel_markets(self):
         try:
             res = requests.get(self.get_url)
             if res.status_code != 200:
-                st.error("The file 'general-information.xlsx' was not found.")
+                st.error("The file 'fuel-market-information.xlsx' was not found.")
                 return []
             file_data = BytesIO(res.content)
             xls = pd.ExcelFile(file_data)
@@ -45,16 +48,16 @@ class GeneralInformation:
     def fetch_and_load(self):
         res = requests.get(self.get_url)
         if res.status_code != 200:
-            st.error("Could not load 'general-information.xlsx'")
+            st.error("Could not load 'fuel-market-information.xlsx'")
             return False
 
-        if not self.design_market:
-            st.write(self.design_market)
+        if not self.fuel_market:
+            st.write(self.fuel_market)
             st.warning("No sheet found in file for selected technology market.")
             return False
 
         file_data = BytesIO(res.content)
-        self.df = pd.read_excel(file_data, sheet_name=self.design_market, engine="openpyxl")
+        self.df = pd.read_excel(file_data, sheet_name=self.fuel_market, engine="openpyxl")
 
         for col in self.df.columns:
             if col not in ["Inputs", "Units"]:
@@ -63,10 +66,11 @@ class GeneralInformation:
         return True
 
     def show_excel_editor(self):
-        st.subheader(self.design_market)
+
+        st.subheader(f"{self.fuel_market} Financial Inputs")
         df = self.df.copy()
         gb = GridOptionsBuilder.from_dataframe(df)
-        height = self.df_heights[self.design_market] if self.design_market in self.df_heights else self.df_heights["Electricity"]
+        height = self.df_heights[self.fuel_market] if self.fuel_market in self.df_heights else self.df_heights["E-Cooking"]
         
         for col in df.columns:
             if col in self.non_editable_columns:
@@ -126,7 +130,7 @@ class GeneralInformation:
                         df.at[i, col] = pd.NA
         
         for col in df.columns:
-            if col not in ["Inputs", "Units"]:
+            if col not in self.non_editable_columns:
                 df[col] = df[col].fillna("-")
         
         invalid_cells = self.cell_validations(df)
@@ -139,40 +143,40 @@ class GeneralInformation:
         data_json = df.reset_index(drop=True).to_dict(orient="records")
         payload = {
             "model": "",
-            "sheet_name": self.design_market,
+            "sheet_name": self.fuel_market,
             "data": data_json
         }
-        res = requests.post(self.post_url, json=payload)
+        res = requests.post(self.save_url, json=payload)
         if res.status_code == 200:
-            st.success(f"Changes in '{self.design_market}' saved successfully.")
+            st.success(f"Changes in '{self.fuel_market}' saved successfully.")
         else:
             st.error("Error saving the changes, try again later.")
 
     def reset_sheet(self):
-        response = requests.post("http://localhost:8000/reset-general-information", json={"model": "", "sheet_name": self.design_market, "data": []})
+        response = requests.post(self.reset_url, json={"model": "", "sheet_name": self.fuel_market, "data": []})
         if response.status_code == 200:
-            st.success(f"File '{self.design_market}' reset to template version.")
+            st.success(f"File '{self.fuel_market}' reset to template version.")
         else:
             st.error(response.json().get("error", "Something went wrong"))
 
     def add_market(self):
-        st.subheader("Add New Market")
+        st.subheader("Add new fuel market")
         new_market = st.text_input("Enter name of the new technology: ")
 
-        if st.button("Create Market"):
+        if st.button("Create market"):
             new_market = new_market.strip()
 
             if new_market == "":
-                st.warning("Market name cannot be empty.")
+                st.warning("Fuel market name cannot be empty.")
             else:
                 try:
                     response = requests.post(
-                        "http://localhost:8000/add-market", 
+                        self.add_url, 
                         json={"name": new_market}
                     )
                     if response.status_code == 200:
                         st.success(f"Market '{new_market}' added successfully.")
-                        st.session_state.design_market = f"{new_market}"
+                        st.session_state.fuel_market = f"{new_market}"
                         st.rerun()
                     else:
                         try:
@@ -184,9 +188,9 @@ class GeneralInformation:
                     st.error(f"Failed to connect to backend: {e}")
 
     def delete_market(self, sheet_name):
-        url = "http://localhost:8000/delete-market"
+
         try:
-            response = requests.post(url, json={"name": sheet_name})
+            response = requests.post(self.delete_url, json={"name": sheet_name})
             if response.status_code == 200:
                 return True
             else:
@@ -198,7 +202,7 @@ class GeneralInformation:
 
     def __call__(self):
 
-        if self.design_market == "Add":
+        if self.fuel_market == "Add":
             self.add_market()
             return
         
@@ -220,17 +224,17 @@ class GeneralInformation:
 
 class TechnoEconomicModels:
     
-    def __init__(self, api_url, subsection, model, design_market):
+    def __init__(self, api_url, subsection, model, fuel_market):
         self.api_url = api_url
         self.subsection = subsection
         self.subsections = {
             "Manage": ManageModels(self.api_url),
-            "Design Capital Structure": DesignCapitalStructure(api_url, subsection, model, design_market),
-            "Techno-Economic Inputs": TechnoEconomicInputs(api_url, subsection, model, design_market),
+            "Design Capital Structure": DesignCapitalStructure(api_url, subsection, model, fuel_market),
+            "Techno-Economic Inputs": TechnoEconomicInputs(api_url, subsection, model, fuel_market),
             "Summary Financing": SummaryFinancing(self.api_url)
         }
         self.model = model
-        self.design_market = design_market
+        self.fuel_market = fuel_market
 
     def __call__(self):
         if self.subsection in self.subsections:
@@ -240,11 +244,12 @@ class TechnoEconomicModels:
 
 
 class ManageModels:
-    
+
     def __init__(self, api_base):
         self.api_base = api_base
         self.list_url = f"{self.api_base}/technoeconomic-models"
-        self.get_url = f"{self.api_base}/technoeconomic-models"
+        self.download_files_url = f"{self.api_base}/download-technoeconomic-model-files"
+        self.create_url = f"{self.api_base}/create-technoeconomic-model"
         self.delete_url = f"{self.api_base}/delete-technoeconomic-model"
         self.upload_url = f"{self.api_base}/upload-technoeconomic-model"
         self.valid_extensions = ["xlsx", "xlsm", "xls", "xltx", "xltm"]
@@ -252,17 +257,10 @@ class ManageModels:
     def list_technoeconomic_models(self):
         try:
             res = requests.get(self.list_url)
-            return res.json().get("files", []) if res.status_code == 200 else []
+            return res.json().get("models", []) if res.status_code == 200 else []
         except:
             st.error("Error loading models from server.")
             return []
-    
-    def get_technoeconomic_model(self, filename):
-        res = requests.get(f"{self.get_url}/{filename}")
-        if res.status_code == 200:
-            return res.content
-        else:
-            return None
 
     def remove_extension(self, filename):
         for ext in self.valid_extensions:
@@ -270,11 +268,75 @@ class ManageModels:
                 return filename[: -len(ext) - 1]
         return filename
     
-    def show_technoeconomic_models(self, files):
-        success, message = None, ""
-        for model in files:
+    def download_technoeconomic_model_files(self, name):
+        url = f"{self.download_files_url}/{name}"
+        res = requests.get(url)
+        return res.content if res.status_code == 200 else None
+
+    def delete_technoeconomic_model(self, name):
+        res = requests.delete(f"{self.delete_url}/{name}")
+        if res.status_code == 200:
+            return True, f"Model '{name}' deleted successfully."
+        else:
+            return False, "Failed to delete the model."
+
+    def upload_technoeconomic_model(self, name, file):
+        files = {"file": (file.name, file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
+        res = requests.post(f"{self.upload_url}/{name}", files=files)
+
+        if res.status_code == 200:
+            return True
+        else:
+            error_detail = res.json().get("detail", res.text)
+            st.error(f"Upload failed: {error_detail}")
+            return False
+
+    def create_technoeconomic_model(self, model, start_year, end_year):
+        try:
+            url = f"{self.create_url}/{model}"
+            response = requests.post(
+                url, params={"start_year": start_year, "end_year": end_year}
+            )
+            data = response.json()
+            if "success" in data and data["success"]:
+                return True, data["message"]
+            else:
+                return False, data.get("error", "Unknown error occurred.")
+        except Exception as e:
+            return False, str(e)
+
+    def model_creator(self):
+        st.markdown("#### ➕ Create New Techno-Economic Model")
+        with st.form("create_model_form"):
+            name = st.text_input("Model Name")
+            col1, col2 = st.columns(2)
+            with col1:
+                start_year = st.number_input("Start Year", step=1, format="%d")
+            with col2:
+                end_year = st.number_input("End Year", step=1, format="%d")
+            create = st.form_submit_button("Create")
+
+            if create:
+                if not name.strip():
+                    st.error("Model name cannot be empty.")
+                elif start_year >= end_year:
+                    st.error("Start year must be less than end year.")
+                else:
+                    success, msg = self.create_technoeconomic_model(name.strip(), int(start_year), int(end_year))
+                    if success:
+                        st.success(msg)
+                        st.session_state["model_name_input"] = ""
+                        st.session_state["start_year_input"] = 0
+                        st.session_state["end_year_input"] = 0
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+
+    def show_technoeconomic_models(self, models):
+        for model in models:
             clean_name = self.remove_extension(model)
-            col1, col2, col3 = st.columns([0.8, 0.1, 0.1])
+            col1, col2, col3, col4 = st.columns([0.7, 0.1, 0.1, 0.1])
 
             with col1:
                 if st.button(f"📄 {clean_name}"):
@@ -284,87 +346,67 @@ class ManageModels:
                     st.rerun()
 
             with col2:
-                content = self.get_technoeconomic_model(model)
+                content = self.download_technoeconomic_model_files(clean_name)
                 if content:
                     st.download_button(
-                        label="⬇️",
+                        "⬇️",
                         data=content,
-                        file_name=model,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        file_name=f"{clean_name}_files.zip",
+                        mime="application/zip"
                     )
 
             with col3:
-                if st.button("❌", key=f"delete_{model}"):
-                    success, message = self.delete_technoeconomic_model(model)
+                if st.button("📤", key=f"trigger_upload_{model}"):
+                    st.session_state[f"show_uploader_{model}"] = True
 
-            if success is True:
-                st.success(message)
-                st.rerun()
-            elif success is False:
-                st.error(message)
-                st.rerun()
+            with col4:
+                if st.button("❌", key=f"delete_{clean_name}"):
+                    success, message = self.delete_technoeconomic_model(clean_name)
+                    if success:
+                        st.success(message)
+                        st.rerun()
+                    else:
+                        st.error(message)
+                        st.rerun()
 
-    def delete_technoeconomic_model(self, filename):
-        res = requests.delete(f"{self.delete_url}/{filename}")
-        if res.status_code == 200:
-            return True, f"Model '{filename}' deleted successfully."
-        else:
-            return False, "Failed to delete the model."
-
-    def tecnoeconomic_model_uploader(self):
-        st.markdown("---")
-        st.markdown("##### Upload New Techno-Economic Model")
-        if "uploader_key" not in st.session_state:
-            st.session_state["uploader_key"] = str(uuid.uuid4())
-        uploaded_file = st.file_uploader(
-            "Upload file",
-            type=self.valid_extensions,
-            key=st.session_state["uploader_key"],
-            label_visibility="collapsed"
-        )
-
-        if uploaded_file is not None:
-            if any(uploaded_file.name.lower().endswith(f".{ext}") for ext in self.valid_extensions):
-                upload_success = self.upload_technoeconomic_model(uploaded_file)
-                if upload_success:
-                    st.success(f"File '{uploaded_file.name}' uploaded successfully.")
-                    st.session_state["uploader_key"] = str(uuid.uuid4())
-                    st.rerun()
-            else:
-                st.error(f"Only Excel files are allowed: {', '.join(self.valid_extensions)}")
-
-    def upload_technoeconomic_model(self, file):
-        files = {"file": (file.name, file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}
-        res = requests.post(self.upload_url, files=files)
-
-        if res.status_code == 200:
-            return True
-        else:
-            error_detail = res.json().get("detail", res.text)
-            st.error(f"Upload failed: {error_detail}")
-            return False
+            if st.session_state.get(f"show_uploader_{model}", False):
+                file = st.file_uploader(
+                    f"Upload file for {model}",
+                    type=self.valid_extensions,
+                    key=f"upload_{model}",
+                    label_visibility="collapsed"
+                )
+                if file:
+                    if any(file.name.lower().endswith(f".{ext}") for ext in self.valid_extensions):
+                        upload_success = self.upload_technoeconomic_model(clean_name, file)
+                        if upload_success:
+                            st.success(f"Uploaded to model '{model}'")
+                            st.session_state[f"show_uploader_{model}"] = False
+                            time.sleep(1)
+                            st.rerun()
+                    else:
+                        st.error(f"Only Excel files are allowed: {', '.join(self.valid_extensions)}")
 
     def show(self):
         st.subheader("Manage Techno-Economic Models")
-        files = self.list_technoeconomic_models()
-
-        if not files:
+        models = self.list_technoeconomic_models()
+        if not models:
             st.info("No techno-economic models available.")
+        else:
+            self.show_technoeconomic_models(models)
+        self.model_creator()
 
-        self.show_technoeconomic_models(files)
-        self.tecnoeconomic_model_uploader()
-        
 
 class DesignCapitalStructure:
     
-    def __init__(self, api_base, subsection, model, design_market):
+    def __init__(self, api_base, subsection, model, fuel_market):
         self.api_base = api_base
         self.get_url = f"{self.api_base}/design-capital-structure"
         self.save_url = f"{self.api_base}/save-design-capital-structure"
         self.reset_url = f"{self.api_base}/reset-design-capital-structure"
         self.subsection = subsection
         self.model = model
-        self.design_market = design_market
+        self.fuel_market = fuel_market
         self.df = None
         self.subtables = {"Finance": None, "Division": None, "Debts": None}
         self.subtable_titles = {
@@ -383,6 +425,22 @@ class DesignCapitalStructure:
             "Debts": ["Baseline"] + [str(year) for year in range(2020, 2051)]
         }
 
+    def get_design_capital(self):
+        try:
+            url = f"{self.get_url}/{self.model}"
+            res = requests.get(url)
+            if res.status_code != 200:
+                st.error("The file 'design-capital-structure.xlsx' was not found.")
+                return None
+
+            file_data = BytesIO(res.content)
+            xls = pd.ExcelFile(file_data)
+            return xls.sheet_names
+
+        except Exception as e:
+            st.error(f"Error fetching capital structure: {e}")
+            return None
+
     def fetch_and_load(self):
         url = f"{self.get_url}/{self.model}"
         res = requests.get(url)
@@ -396,7 +454,7 @@ class DesignCapitalStructure:
         
         file_data = BytesIO(res.content)
         self.df = pd.read_excel(file_data, sheet_name=self.
-        design_market, engine="openpyxl", header=None, index_col=None)
+        fuel_market, engine="openpyxl", header=None, index_col=None)
         self.split_into_subtables()
         return True
     
@@ -427,7 +485,7 @@ class DesignCapitalStructure:
             self.subtables[key] = subdf
 
     def show_excel_editor(self):
-        st.subheader(f"{self.design_market} Financial Plan")
+        st.subheader(f"{self.fuel_market} Financial Plan")
 
         for key, df in self.subtables.items():
             if df is not None and not df.empty:
@@ -495,26 +553,26 @@ class DesignCapitalStructure:
 
         payload = {
             "model": self.model,
-            "sheet_name": self.design_market,
+            "sheet_name": self.fuel_market,
             "data": full_df.to_dict(orient="records")
         }
 
         res = requests.post(self.save_url, json=payload)
         if res.status_code == 200:
-            st.success(f"Changes in '{self.design_market}' saved successfully in '{self.model}'.")
+            st.success(f"Changes in '{self.fuel_market}' saved successfully in '{self.model}'.")
         else:
             st.error(f"Save failed (HTTP {res.status_code}): {res.text}")
 
     def reset_sheet(self):
         payload = {
             "model": self.model,
-            "sheet_name": self.design_market,
+            "sheet_name": self.fuel_market,
             "data": []
         }
 
         res = requests.post(self.reset_url, json=payload)
         if res.status_code == 200:
-            st.success(f"File '{self.design_market}' of '{self.model}' was reset to template version.")
+            st.success(f"File '{self.fuel_market}' of '{self.model}' was reset to template version.")
         else:
             st.error(res.json().get("error", "Something went wrong"))
     
@@ -537,48 +595,66 @@ class DesignCapitalStructure:
 
 class TechnoEconomicInputs:
     
-    def __init__(self, api_base, subsection, model, design_market):
+    def __init__(self, api_base, subsection, model, fuel_market):
         self.api_base = api_base
-        self.general_get_url = f"{self.api_base}/general-information"
-        self.get_url = f"{self.api_base}/technoeconomic-inputs/"
+        self.fuel_market_get_url = f"{self.api_base}/fuel-market-information"
+        self.get_url = f"{self.api_base}/technoeconomic-inputs"
+        self.save_url = f"{self.api_base}/save-technoeconomic-inputs"
+        self.reset_url = f"{self.api_base}/reset-technoeconomic-inputs"
         self.subsection = subsection
         self.model = model
-        self.design_market = design_market
-        self.df_general_inputs = None
-        self.df_heights_general_inputs = {"Electricity": 170, "LPG": 260, "C02": 170}
+        self.fuel_market = fuel_market
+        self.df_fuel_market_inputs = None
+        self.df_heights_fuel_market_inputs = {"E-Cooking": 170, "LPG": 260, "C02": 170}
         self.df = None
+        self.df_heights = {"E-Cooking": 580, "LPG": 500, "Rest of subsidies or taxes": 410}
+        self.edited_df = None
+        self.non_editable_columns = ["Inputs", "Type", "Units"]
     
-    def fetch_and_load(self, general: bool):
+    def get_technoeconomic_inputs(self):
+        try:
+            url = f"{self.get_url}/{self.model}"
+            res = requests.get(url)
+            if res.status_code != 200:
+                st.error("The file 'technoeconomic-inputs.xlsx' was not found.")
+                return None
 
-        url = self.general_get_url if general else f"{self.get_url}{self.model}"
-        print(url)
+            file_data = BytesIO(res.content)
+            xls = pd.ExcelFile(file_data)
+            return xls.sheet_names
 
+        except Exception as e:
+            st.error(f"Error fetching techno-economic inputs: {e}")
+            return None
+
+    def fetch_and_load(self, fuel_market: bool):
+        
+        url = self.fuel_market_get_url if fuel_market else f"{self.get_url}/{self.model}"
         res = requests.get(url)
         if res.status_code != 200:
-            if general:
-                st.error("Could not load 'general-information.xlsx'")
+            if fuel_market:
+                st.error("Could not load 'fuel-market-information.xlsx'")
             else:
                 st.error("Could not load 'technoeconomic-inputs.xlsx'")
             return False
         
-        if not self.design_market:
-            st.write(self.design_market)
+        if not self.fuel_market:
             st.warning("No sheet found in file for selected technology market.")
             return False
         
         file_data = BytesIO(res.content)
-        if general:
-            if not self.design_market == "C02":
-                self.df_general_inputs = pd.read_excel(file_data, sheet_name=self.design_market, engine="openpyxl")
+        if fuel_market:
+            if not self.fuel_market == "C02":
+                self.df_fuel_market_inputs = pd.read_excel(file_data, sheet_name=self.fuel_market, engine="openpyxl")
             else:
-                self.df_general_inputs = pd.read_excel(file_data, sheet_name="Carbon", engine="openpyxl")
+                self.df_fuel_market_inputs = pd.read_excel(file_data, sheet_name="Carbon", engine="openpyxl")
         else:
-            self.df = pd.read_excel(file_data, sheet_name=self.design_market, engine="openpyxl", header=1)
+            self.df = pd.read_excel(file_data, sheet_name=self.fuel_market, engine="openpyxl")
 
-        if general:
-            for col in self.df_general_inputs.columns:
+        if fuel_market:
+            for col in self.df_fuel_market_inputs.columns:
                 if col not in ["Inputs", "Units"]:
-                    self.df_general_inputs[col] = pd.to_numeric(self.df_general_inputs[col].replace("-", pd.NA), errors="coerce")
+                    self.df_fuel_market_inputs[col] = pd.to_numeric(self.df_fuel_market_inputs[col].replace("-", pd.NA), errors="coerce")
         else:
             for col in self.df.columns:
                 if col not in ["Inputs", "Type", "Units"]:
@@ -586,44 +662,121 @@ class TechnoEconomicInputs:
 
         return True
 
-    def show_excel_editor(self, general: bool):
-        
-        df = self.df_general_inputs.copy() if general else self.df.copy()
+    def show_excel_editor(self, fuel_market: bool):
+        df = self.df_fuel_market_inputs.copy() if fuel_market else self.df.copy()
+        df.columns = df.columns.astype(str)
 
-        if general and self.design_market == "LPG":
+        if fuel_market and self.fuel_market == "LPG":
+            df["Inputs"] = df["Inputs"].astype(str)
             df = df[~df["Inputs"].str.contains("EBITDA", na=False)]
             df["Inputs"] = df["Inputs"].str.replace("OPEX", "Tariff", regex=False)
 
         gb = GridOptionsBuilder.from_dataframe(df)
 
-        if general: 
-            height = self.df_heights_general_inputs[self.design_market] if self.design_market in self.df_heights_general_inputs else self.df_heights_general_inputs["Electricity"]
+        if not fuel_market:
+            for col in df.columns:
+                if col not in self.non_editable_columns:
+                    gb.configure_column(col, editable=True)
         else:
-            height = 590
+            gb.configure_columns(df.columns, editable=False)
+
+        if fuel_market: 
+            height = self.df_heights_fuel_market_inputs.get(self.fuel_market, self.df_heights_fuel_market_inputs["E-Cooking"])
+        else:
+            height = self.df_heights.get(self.fuel_market, self.df_heights["E-Cooking"])
 
         grid_options = gb.build()
+
         grid_response = AgGrid(
             df,
             gridOptions=grid_options,
-            update_mode=GridUpdateMode.VALUE_CHANGED,
+            update_mode=GridUpdateMode.VALUE_CHANGED if not fuel_market else GridUpdateMode.NO_UPDATE,
             allow_unsafe_jscode=True,
             enable_enterprise_modules=False,
             height=height
         )
-        df = pd.DataFrame(grid_response["data"])
+
+        if not fuel_market:
+            self.edited_df = pd.DataFrame(grid_response["data"])
+
+    def save_changes(self):
+        df = self.edited_df.copy()
+        df.columns = df.columns.map(str)
+        self.df.columns = self.df.columns.map(str)
+        df = df[self.df.columns]
+        
+        for col in df.columns:
+            if col not in self.non_editable_columns:
+                df[col] = df[col].fillna("-")
+
+        data_json = df.reset_index(drop=True).to_dict(orient="records")
+        payload = {
+            "model": self.model,
+            "sheet_name": self.fuel_market,
+            "data": data_json
+        }
+        res = requests.post(self.save_url, json=payload)
+        if res.status_code == 200:
+            st.success(f"Changes in '{self.fuel_market}' saved successfully.")
+        else:
+            st.error("Error saving the changes, try again later.")
+
+    def reset_sheet(self):
+        payload = {
+            "model": self.model,
+            "sheet_name": self.fuel_market,
+            "data": []
+        }
+        response = requests.post(self.reset_url, json=payload)
+        if response.status_code == 200:
+            st.success(f"File '{self.fuel_market}' reset to template version.")
+        else:
+            st.error(response.json().get("error", "Something went wrong"))
 
     def show(self):
         
-        st.subheader(self.design_market)
-        if not self.fetch_and_load(general=True):
-            return
-        
-        self.show_excel_editor(general=True)
+        st.subheader(f"{self.fuel_market} Inputs")
+        if self.fuel_market == "Rest of subsidies or taxes":
+            if not self.fetch_and_load(fuel_market=False):
+                return
+            self.show_excel_editor(fuel_market=False)
+            if st.button("Save"):
+                self.save_changes()
+                time.sleep(1)
+                st.rerun()
 
-        if not self.fetch_and_load(general=False):
+            if st.button("Reset"):
+                self.reset_sheet()
+                time.sleep(1)
+                st.rerun()
+            return
+
+        
+        if self.fuel_market == "C02":
+            if not self.fetch_and_load(fuel_market=True):
+                return
+            self.show_excel_editor(fuel_market=True)
+            return
+    
+        if not self.fetch_and_load(fuel_market=True):
             return
         
-        self.show_excel_editor(general=False)
+        self.show_excel_editor(fuel_market=True)
+
+        if not self.fetch_and_load(fuel_market=False):
+            return
+        
+        self.show_excel_editor(fuel_market=False)
+
+        if st.button("Save"):
+            self.save_changes()
+            time.sleep(1)
+            st.rerun()
+
+        if st.button("Reset"):
+            self.reset_sheet()
+            time.sleep(1)
+            st.rerun()
 
 
 class SummaryFinancing:
