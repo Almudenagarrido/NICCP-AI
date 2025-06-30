@@ -78,18 +78,18 @@ def sidebar():
 
     fm = c.FuelMarketInformation(API_URL, st.session_state.subsection)
     fuel_market_sheets = fm.get_fuel_markets()
-    if 'E-Cooking' in fuel_market_sheets:
-        fuel_market_sheets = ['E-Cooking'] + [m for m in fuel_market_sheets if m != 'E-Cooking']
+    if 'Electricity' in fuel_market_sheets:
+        fuel_market_sheets = ['Electricity'] + [m for m in fuel_market_sheets if m != 'Electricity']
 
-    dcs = c.DesignCapitalStructure(API_URL, st.session_state.subsection, st.session_state.model, st.session_state.fuel_market)
+    dcs = c.DesignCapitalStructure(API_URL, st.session_state.subsection, st.session_state.model, st.session_state.fuel_market, None)
     design_capital_sections = dcs.get_design_capital()
-    if 'E-Cooking' in design_capital_sections and 'Electricity' in design_capital_sections:
-        design_capital_sections = ['E-Cooking', 'Electricity'] + [s for s in design_capital_sections if s != 'E-Cooking' and s != 'Electricity']
+    if 'Electricity & E-Cooking' in design_capital_sections and 'Electricity (Low access)' in design_capital_sections:
+        design_capital_sections = ['Electricity & E-Cooking', 'Electricity (Low access)'] + [s for s in design_capital_sections if s != 'Electricity & E-Cooking' and s != 'Electricity (Low access)']
 
-    ti = c.TechnoEconomicInputs(API_URL, st.session_state.subsection, st.session_state.model, st.session_state.fuel_market)
+    ti = c.TechnoEconomicInputs(API_URL, st.session_state.subsection, st.session_state.model, st.session_state.fuel_market, None)
     technoeconomic_input_sheets = ti.get_technoeconomic_inputs()
-    if 'E-Cooking' in technoeconomic_input_sheets:
-        technoeconomic_input_sheets = ['E-Cooking'] + [t for t in technoeconomic_input_sheets if t != 'E-Cooking']
+    if 'Electricity' in technoeconomic_input_sheets:
+        technoeconomic_input_sheets = ['Electricity'] + [t for t in technoeconomic_input_sheets if t != 'Electricity']
 
     # Fuel Market Information
     with st.sidebar:
@@ -156,10 +156,7 @@ def sidebar():
                         st.rerun()
 
                 if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == "Design Capital Structure" and st.session_state.fuel_market == None:
-                    if not fuel_market_sheets[0] == "Carbon":
-                        st.session_state.fuel_market = fuel_market_sheets[0]
-                    else:               
-                        st.session_state.fuel_market = "Electricity"
+                    st.session_state.fuel_market = fuel_market_sheets[0]
 
             with st.expander("Techno-Economic Inputs", expanded=False):
                 for sheet in technoeconomic_input_sheets:

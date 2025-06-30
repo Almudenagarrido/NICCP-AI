@@ -9,6 +9,66 @@ from io import BytesIO
 import time
 
 
+class CellValidator:
+    
+    def __init__(self):
+        self.validators = {
+            "%": self.validate_percentage,
+            "days": self.validate_positive_integer,
+            "years": self.validate_positive_integer,
+            "$ / ton": self.validate_positive_integer,
+            "m$": self.validate_positive_integer,
+        }
+
+    def validate_percentage(self, value):
+        try:
+            if pd.isna(value) or value == "-":
+                return None
+            val = float(value)
+            if not (0 <= val <= 100):
+                return "Value must be between 0 and 100 (percentage)"
+        except:
+            return "Not a valid number"
+        return None
+
+    def validate_positive_integer(self, value):
+        try:
+            if pd.isna(value) or value == "-":
+                return None
+            val = float(value)
+            if val < 0 or not float(val).is_integer():
+                return "Value must be a positive integer"
+        except:
+            return "Not a valid number"
+        return None
+
+    def validate_cell(self, value, unit):
+        validator = self.validators.get(unit.strip().lower())
+        if validator:
+            return validator(value)
+        return None
+    
+    def cell_validations(self, df, editable_columns):
+        invalid_cells = []
+
+        unit_col = next((col for col in df.columns if "units" in col.lower()), None)
+
+        for index, row in df.iterrows():
+            units = str(row[unit_col]).lower() if unit_col else ""
+            input_name = row["Inputs"] if "Inputs" in df.columns else int(index) + 1
+
+            for col in df.columns:
+                if col not in editable_columns:
+                    continue
+
+                value = row[col]
+                error = self.validate_cell(value, units)
+                if error:
+                    invalid_cells.append((index, input_name, col, value, error))
+
+        return invalid_cells
+    
+
 class FuelMarketInformation:
 
     def __init__(self, api_url, fuel_market):
@@ -21,7 +81,7 @@ class FuelMarketInformation:
         self.fuel_market = fuel_market
         self.df = None
         self.edited_df = None
-        self.non_editable_columns = ["Inputs", "Units"]
+        self.editable_columns = ["Baseline"] + [str(year) for year in range(2020, 2051)]
         self.percentage_rows = [
                 "Expected non-technical losses",
                 "Tax rate",
@@ -30,7 +90,8 @@ class FuelMarketInformation:
                 "CO2 certificate",
                 "Liquidity"
         ]
-        self.df_heights = {"E-Cooking": 170, "LPG": 350, "Carbon": 170}
+        self.df_heights = {"Electricity": 170, "LPG": 350, "Carbon": 170}
+        self.cell_validator = CellValidator()
 
     def get_fuel_markets(self):
         try:
@@ -70,13 +131,13 @@ class FuelMarketInformation:
         st.subheader(f"{self.fuel_market} Financial Inputs")
         df = self.df.copy()
         gb = GridOptionsBuilder.from_dataframe(df)
-        height = self.df_heights[self.fuel_market] if self.fuel_market in self.df_heights else self.df_heights["E-Cooking"]
+        height = self.df_heights[self.fuel_market] if self.fuel_market in self.df_heights else self.df_heights["Electricity"]
         
         for col in df.columns:
-            if col in self.non_editable_columns:
-                gb.configure_column(col, editable=False)
-            else:
+            if col in self.editable_columns:
                 gb.configure_column(col, editable=True)
+            else:
+                gb.configure_column(col, editable=False)
 
         grid_options = gb.build()
         grid_response = AgGrid(
@@ -88,40 +149,15 @@ class FuelMarketInformation:
             height=height
         )
         self.edited_df = pd.DataFrame(grid_response["data"])
-
-    def cell_validations(self, df):
-        invalid_cells = []
-
-        for index, row in df.iterrows():
-            row_label = str(row.get("Inputs", "")).lower()
-            is_percentage = any(name.lower() in row_label for name in self.percentage_rows)
-
-            for col in df.columns:
-                if col in self.non_editable_columns:
-                    continue
-
-                value = row[col]
-                try:
-                    if value == "-" or pd.isna(value):
-                        continue
-
-                    num_value = float(value)
-
-                    if is_percentage:
-                        if not (0 <= num_value <= 100):
-                            invalid_cells.append((index, row["Inputs"], col, value))
-                    else:
-                        if num_value < 0:
-                            invalid_cells.append((index, row["Inputs"], col, value))
-
-                except Exception:
-                    invalid_cells.append((index, row["Inputs"], col, value))
-
-        return invalid_cells
-               
+           
     def save_changes(self):
         df = self.edited_df.copy()
         df = df[self.df.columns]
+
+        for col in df.columns:
+            if col in self.editable_columns:
+                df[col] = df[col].fillna(0)
+
 
         for i, row in df.iterrows():
             if str(row.get("Inputs", "")).strip().lower() == "number of years that you could sell those carbon credits":
@@ -129,16 +165,17 @@ class FuelMarketInformation:
                     if col not in ["Inputs", "Units", "Baseline"]:
                         df.at[i, col] = pd.NA
         
-        for col in df.columns:
-            if col not in self.non_editable_columns:
-                df[col] = df[col].fillna("-")
-        
-        invalid_cells = self.cell_validations(df)
+        editable_cols_in_df = [col for col in self.editable_columns if col in df.columns]
+        df[editable_cols_in_df] = df[editable_cols_in_df].astype(object)
+        df.loc[df.index[-1], editable_cols_in_df] = df.loc[df.index[-1], editable_cols_in_df].fillna("-")
+
+                
+        invalid_cells = self.cell_validator.cell_validations(df, self.editable_columns)
+
         if invalid_cells:
-            for _, input_name, col, value in invalid_cells:
-                st.warning(f"Invalid value '{value}' in row '{input_name}' (column '{col}')")
-            st.error("Fix validation errors before saving.")
-            return
+            for _, input_name, col, value, error in invalid_cells:
+                st.warning(f"Invalid value '{value}' in row '{input_name}' (column '{col}'): {error}")
+            return False
 
         data_json = df.reset_index(drop=True).to_dict(orient="records")
         payload = {
@@ -151,6 +188,8 @@ class FuelMarketInformation:
             st.success(f"Changes in '{self.fuel_market}' saved successfully.")
         else:
             st.error("Error saving the changes, try again later.")
+
+        return error
 
     def reset_sheet(self):
         response = requests.post(self.reset_url, json={"model": "", "sheet_name": self.fuel_market, "data": []})
@@ -212,13 +251,14 @@ class FuelMarketInformation:
         self.show_excel_editor()
         
         if st.button("Save"):
-            self.save_changes()
-            time.sleep(1)
-            st.rerun()
+            saved = self.save_changes()
+            if saved:
+                time.sleep(2)
+                st.rerun()
 
         if st.button("Reset"):
             self.reset_sheet()
-            time.sleep(1)
+            time.sleep(2)
             st.rerun()
 
 
@@ -227,18 +267,19 @@ class TechnoEconomicModels:
     def __init__(self, api_url, subsection, model, fuel_market):
         self.api_url = api_url
         self.subsection = subsection
-        self.subsections = {
-            "Manage": ManageModels(self.api_url),
-            "Design Capital Structure": DesignCapitalStructure(api_url, subsection, model, fuel_market),
-            "Techno-Economic Inputs": TechnoEconomicInputs(api_url, subsection, model, fuel_market),
-            "Summary Financing": SummaryFinancing(self.api_url)
-        }
         self.model = model
         self.fuel_market = fuel_market
+        self.cell_validator = CellValidator()
+        self.subsections = {
+            "Manage": ManageModels(self.api_url),
+            "Design Capital Structure": DesignCapitalStructure(api_url, subsection, model, fuel_market, self.cell_validator),
+            "Techno-Economic Inputs": TechnoEconomicInputs(api_url, subsection, model, fuel_market, self.cell_validator),
+            "Summary Financing": SummaryFinancing(self.api_url)
+        }
 
     def __call__(self):
         if self.subsection in self.subsections:
-            self.subsections[self.subsection].show()
+            self.subsections[self.subsection]()
         else:
             st.info("Please select a valid subsection.")
 
@@ -287,7 +328,10 @@ class ManageModels:
         if res.status_code == 200:
             return True
         else:
-            error_detail = res.json().get("detail", res.text)
+            try:
+                error_detail = res.json().get("detail", res.text)
+            except ValueError:
+                error_detail = res.text
             st.error(f"Upload failed: {error_detail}")
             return False
 
@@ -382,12 +426,12 @@ class ManageModels:
                         if upload_success:
                             st.success(f"Uploaded to model '{model}'")
                             st.session_state[f"show_uploader_{model}"] = False
-                            time.sleep(1)
+                            time.sleep(2)
                             st.rerun()
                     else:
                         st.error(f"Only Excel files are allowed: {', '.join(self.valid_extensions)}")
 
-    def show(self):
+    def __call__(self):
         st.subheader("Manage Techno-Economic Models")
         models = self.list_technoeconomic_models()
         if not models:
@@ -399,7 +443,7 @@ class ManageModels:
 
 class DesignCapitalStructure:
     
-    def __init__(self, api_base, subsection, model, fuel_market):
+    def __init__(self, api_base, subsection, model, fuel_market, cell_validator):
         self.api_base = api_base
         self.get_url = f"{self.api_base}/design-capital-structure"
         self.save_url = f"{self.api_base}/save-design-capital-structure"
@@ -408,22 +452,26 @@ class DesignCapitalStructure:
         self.model = model
         self.fuel_market = fuel_market
         self.df = None
-        self.subtables = {"Finance": None, "Division": None, "Debts": None}
+        self.subtables = {"Finance": None, "Total": None, "Division": None, "Debts": None}
         self.subtable_titles = {
             "Finance": "Financiation",
+            "Total": "Total",
             "Division": "Total",
             "Debts": "Type"
         }
         self.subtable_heights = {
             "Finance": 100,
+            "Total": 130,
             "Division": 230,
             "Debts": 150
         }
         self.editable_columns = {
             "Finance": ["Amount"],
-            "Division": ["Amount Total", "Amount Division"],
+            "Total": ["Amount"],
+            "Division": ["Amount"],
             "Debts": ["Baseline"] + [str(year) for year in range(2020, 2051)]
         }
+        self.cell_validator = cell_validator
 
     def get_design_capital(self):
         try:
@@ -463,9 +511,9 @@ class DesignCapitalStructure:
         section_starts = {}
         
         for idx, row in df.iterrows():
-            row_str = " ".join(str(v) for v in row if pd.notna(v))
+            first_col_val = str(row[0]) if pd.notna(row[0]) else ""
             for key, keyword in self.subtable_titles.items():
-                if key not in section_starts and keyword in row_str:
+                if key not in section_starts and keyword.lower() in first_col_val.lower():
                     section_starts[key] = idx
 
         sorted_sections = sorted(section_starts.items(), key=lambda x: x[1])
@@ -473,7 +521,7 @@ class DesignCapitalStructure:
             end_idx = sorted_sections[i + 1][1] if i + 1 < len(sorted_sections) else len(df)
             subdf = df.iloc[start_idx:end_idx].reset_index(drop=True)
             
-            subdf.replace("-", np.nan, inplace=True)
+            subdf = subdf.mask(subdf == "-", np.nan)
             subdf.dropna(axis=0, how="all", inplace=True)
             subdf.dropna(axis=1, how="all", inplace=True)
             
@@ -481,6 +529,10 @@ class DesignCapitalStructure:
                 header_row = subdf.iloc[0]
                 subdf.columns = [str(int(x)) if isinstance(x, float) and x.is_integer() else str(x) for x in header_row]
                 subdf = subdf[1:].reset_index(drop=True)
+                subdf = subdf.loc[:, subdf.columns.notna()]
+                subdf = subdf.loc[:, subdf.columns.str.strip() != '']
+                subdf = subdf.loc[:, ~subdf.columns.duplicated()]
+                subdf = subdf.loc[:, ~subdf.columns.str.contains("^Unnamed", case=False)]
             
             self.subtables[key] = subdf
 
@@ -549,19 +601,35 @@ class DesignCapitalStructure:
                     col_idx = headers.index(col)
                     full_df.iat[target_idx, col_idx] = sub_row[col]
 
-        full_df.replace([np.nan, np.inf, -np.inf, None], "-", inplace=True)
+        for col in full_df.columns:
+            full_df[col] = full_df[col].astype(object)
+            full_df[col] = full_df[col].fillna('-')
+
+        for key, title in self.subtable_titles.items():
+            subdf = self.subtables.get(key)
+            if subdf is None or subdf.empty:
+                continue
+
+            editable_cols = self.editable_columns.get(key, [])
+
+            invalid_cells = self.cell_validator.cell_validations(subdf, editable_cols)
+            if invalid_cells:
+                for _, input_name, col, value, error in invalid_cells:
+                    st.warning(f"[{key}] Invalid value '{value}' in row '{input_name}' (column '{col}'): {error}")
+                return False
 
         payload = {
             "model": self.model,
             "sheet_name": self.fuel_market,
             "data": full_df.to_dict(orient="records")
         }
-
         res = requests.post(self.save_url, json=payload)
         if res.status_code == 200:
             st.success(f"Changes in '{self.fuel_market}' saved successfully in '{self.model}'.")
         else:
             st.error(f"Save failed (HTTP {res.status_code}): {res.text}")
+
+        return True
 
     def reset_sheet(self):
         payload = {
@@ -576,26 +644,27 @@ class DesignCapitalStructure:
         else:
             st.error(res.json().get("error", "Something went wrong"))
     
-    def show(self):
+    def __call__(self):
         if not self.fetch_and_load():
             return
         
         self.show_excel_editor()
 
         if st.button("Save"):
-            self.save_changes()
-            time.sleep(1)
-            st.rerun()
+            saved = self.save_changes()
+            if saved:
+                time.sleep(2)
+                st.rerun()
 
         if st.button("Reset"):
             self.reset_sheet()
-            time.sleep(1)
+            time.sleep(2)
             st.rerun()
 
 
 class TechnoEconomicInputs:
     
-    def __init__(self, api_base, subsection, model, fuel_market):
+    def __init__(self, api_base, subsection, model, fuel_market, cell_validator):
         self.api_base = api_base
         self.fuel_market_get_url = f"{self.api_base}/fuel-market-information"
         self.get_url = f"{self.api_base}/technoeconomic-inputs"
@@ -605,11 +674,12 @@ class TechnoEconomicInputs:
         self.model = model
         self.fuel_market = fuel_market
         self.df_fuel_market_inputs = None
-        self.df_heights_fuel_market_inputs = {"E-Cooking": 170, "LPG": 260, "C02": 170}
+        self.df_heights_fuel_market_inputs = {"Electricity": 170, "LPG": 260, "C02": 170}
         self.df = None
-        self.df_heights = {"E-Cooking": 580, "LPG": 500, "Rest of subsidies or taxes": 410}
+        self.df_heights = {"Electricity": 580, "LPG": 500, "Rest of subsidies or taxes": 410}
         self.edited_df = None
-        self.non_editable_columns = ["Inputs", "Type", "Units"]
+        self.editable_columns = ["Baseline"] + [str(year) for year in range(2020, 2051)]
+        self.cell_validator = cell_validator
     
     def get_technoeconomic_inputs(self):
         try:
@@ -632,10 +702,7 @@ class TechnoEconomicInputs:
         url = self.fuel_market_get_url if fuel_market else f"{self.get_url}/{self.model}"
         res = requests.get(url)
         if res.status_code != 200:
-            if fuel_market:
-                st.error("Could not load 'fuel-market-information.xlsx'")
-            else:
-                st.error("Could not load 'technoeconomic-inputs.xlsx'")
+            st.error("Could not load 'technoeconomic-inputs.xlsx'")
             return False
         
         if not self.fuel_market:
@@ -651,14 +718,12 @@ class TechnoEconomicInputs:
         else:
             self.df = pd.read_excel(file_data, sheet_name=self.fuel_market, engine="openpyxl")
 
-        if fuel_market:
-            for col in self.df_fuel_market_inputs.columns:
-                if col not in ["Inputs", "Units"]:
-                    self.df_fuel_market_inputs[col] = pd.to_numeric(self.df_fuel_market_inputs[col].replace("-", pd.NA), errors="coerce")
-        else:
+        if not fuel_market:
             for col in self.df.columns:
                 if col not in ["Inputs", "Type", "Units"]:
                     self.df[col] = pd.to_numeric(self.df[col].replace("-", pd.NA), errors="coerce")
+            
+            self.df = self.df.mask(self.df == "-", np.nan)
 
         return True
 
@@ -675,15 +740,15 @@ class TechnoEconomicInputs:
 
         if not fuel_market:
             for col in df.columns:
-                if col not in self.non_editable_columns:
+                if col in self.editable_columns:
                     gb.configure_column(col, editable=True)
         else:
             gb.configure_columns(df.columns, editable=False)
 
         if fuel_market: 
-            height = self.df_heights_fuel_market_inputs.get(self.fuel_market, self.df_heights_fuel_market_inputs["E-Cooking"])
+            height = self.df_heights_fuel_market_inputs.get(self.fuel_market, self.df_heights_fuel_market_inputs["Electricity"])
         else:
-            height = self.df_heights.get(self.fuel_market, self.df_heights["E-Cooking"])
+            height = self.df_heights.get(self.fuel_market, self.df_heights["Electricity"])
 
         grid_options = gb.build()
 
@@ -701,12 +766,27 @@ class TechnoEconomicInputs:
 
     def save_changes(self):
         df = self.edited_df.copy()
+        df["Inputs"] = df["Inputs"].astype(str).str.strip()
+
+        for i, row in df.iterrows():
+            input_val = row["Inputs"].lower()
+
+            if "output" in input_val:
+                for col in df.columns:
+                    if col not in ["Inputs", "Type", "Units"]:
+                        df.at[i, col] = np.nan
+
+            elif "depreciation" in input_val:
+                for col in df.columns:
+                    if col not in ["Inputs", "Type", "Units", "Baseline"]:
+                        df.at[i, col] = np.nan
+
         df.columns = df.columns.map(str)
         self.df.columns = self.df.columns.map(str)
         df = df[self.df.columns]
         
         for col in df.columns:
-            if col not in self.non_editable_columns:
+            if col in self.editable_columns:
                 df[col] = df[col].fillna("-")
 
         data_json = df.reset_index(drop=True).to_dict(orient="records")
@@ -720,6 +800,9 @@ class TechnoEconomicInputs:
             st.success(f"Changes in '{self.fuel_market}' saved successfully.")
         else:
             st.error("Error saving the changes, try again later.")
+            return False
+        
+        return True
 
     def reset_sheet(self):
         payload = {
@@ -733,7 +816,7 @@ class TechnoEconomicInputs:
         else:
             st.error(response.json().get("error", "Something went wrong"))
 
-    def show(self):
+    def __call__(self):
         
         st.subheader(f"{self.fuel_market} Inputs")
         if self.fuel_market == "Rest of subsidies or taxes":
@@ -741,13 +824,14 @@ class TechnoEconomicInputs:
                 return
             self.show_excel_editor(fuel_market=False)
             if st.button("Save"):
-                self.save_changes()
-                time.sleep(1)
-                st.rerun()
+                saved = self.save_changes()
+                if saved:
+                    time.sleep(2)
+                    st.rerun()
 
             if st.button("Reset"):
                 self.reset_sheet()
-                time.sleep(1)
+                time.sleep(2)
                 st.rerun()
             return
 
