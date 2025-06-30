@@ -27,24 +27,24 @@ START_YEAR_TECHNO_MODELS = None
 END_YEAR_TECHNO_MODELS = None
 
 CELLS_MAPPING_MODEL_TO_TECHNO = [
-    ("Res-Cash", "G16:R16", "E-Cooking", "D2:O2"),
+    ("Res-Cash", "G16:R16", "Electricity", "D2:O2"),
 
-    ("Res-Cash", "G19:R19", "E-Cooking", "D4:O4"),
-    ("Res-Cash", "G17:R17", "E-Cooking", "D5:O5"),
-    ("Res-Cash", "G20:R20", "E-Cooking", "D6:O6"),
-    ("Res-Cash", "G18:R18", "E-Cooking", "D7:O7"),
-    ("Financial", "G13", "E-Cooking", "D8"),
+    ("Res-Cash", "G19:R19", "Electricity", "D4:O4"),
+    ("Res-Cash", "G17:R17", "Electricity", "D5:O5"),
+    ("Res-Cash", "G20:R20", "Electricity", "D6:O6"),
+    ("Res-Cash", "G18:R18", "Electricity", "D7:O7"),
+    ("Financial", "G13", "Electricity", "D8"),
 
-    ("Res-Cash", "G23:R23", "E-Cooking", "D10:O10"),
-    ("Res-Cash", "G21:R21", "E-Cooking", "D11:O11"),
-    ("Res-Cash", "G24:R24", "E-Cooking", "D12:O12"),
-    ("Res-Cash", "G22:R22", "E-Cooking", "D13:O13"),
-    ("Financial", "G17", "E-Cooking", "D14"),
+    ("Res-Cash", "G23:R23", "Electricity", "D10:O10"),
+    ("Res-Cash", "G21:R21", "Electricity", "D11:O11"),
+    ("Res-Cash", "G24:R24", "Electricity", "D12:O12"),
+    ("Res-Cash", "G22:R22", "Electricity", "D13:O13"),
+    ("Financial", "G17", "Electricity", "D14"),
 
-    ("Res-Cash", "G28:R28", "E-Cooking", "D16:O16"),
-    ("Res-Cash", "G29:R29", "E-Cooking", "D17:O17"),
-    ("Res-Cash", "G30:R30", "E-Cooking", "D18:O18"),
-    ("Res-Cash", "G17", "E-Cooking", "D19"),
+    ("Res-Cash", "G28:R28", "Electricity", "D16:O16"),
+    ("Res-Cash", "G29:R29", "Electricity", "D17:O17"),
+    ("Res-Cash", "G30:R30", "Electricity", "D18:O18"),
+    ("Res-Cash", "G17", "Electricity", "D19"),
 
     ("Res-Cash", "G34:R34", "LPG", "D2:O2"),
 
@@ -115,7 +115,7 @@ def get_fuel_market_information():
             cell_val = ws.cell(row=year_row, column=col).value
             try:
                 year = int(cell_val)
-                if year < START_YEAR_TECHNO_MODELS or year > END_YEAR_TECHNO_MODELS:
+                if year <= START_YEAR_TECHNO_MODELS or year > END_YEAR_TECHNO_MODELS:
                     cols_to_delete.append(col)
             except (TypeError, ValueError):
                 pass
@@ -188,7 +188,7 @@ def reset_fuel_market_information(update: SheetUpdate):
 
     try:
         if update.sheet_name not in {"Carbon", "LPG"}:
-            template_sheet = "E-Cooking"
+            template_sheet = "Electricity"
         else:
             template_sheet = update.sheet_name
 
@@ -216,11 +216,11 @@ def add_fuel_market(market: MarketName):
 
     xls_template = pd.ExcelFile(FUEL_MARKET_INFORMATION_TEMPLATE, engine="openpyxl")
     xls = pd.ExcelFile(FUEL_MARKET_INFORMATION_PATH, engine="openpyxl")
-    df_ecooking = pd.read_excel(xls_template, sheet_name="E-Cooking", engine="openpyxl")
+    df_ecooking = pd.read_excel(xls_template, sheet_name="Electricity", engine="openpyxl")
     new_sheet_name = market.name
     
-    if "E-Cooking" not in xls_template.sheet_names:
-        return {"error": "Base sheet 'E-Cooking' not found"}
+    if "Electricity" not in xls_template.sheet_names:
+        return {"error": "Base sheet 'Electricity' not found"}
 
     if new_sheet_name in xls.sheet_names:
         return {"error": f"The sheet '{new_sheet_name}' already exists."}
@@ -283,7 +283,7 @@ def detect_year_range(path):
                         except Exception:
                             continue
                     if years:
-                        return min(years), max(years)
+                        return min(years) - 1, max(years)
     return None, None
 
 @app.post("/create-technoeconomic-model/{model}")
@@ -339,7 +339,7 @@ async def create_technoeconomic_model(model: str, start_year: int, end_year: int
     existing_sheets = xls_model.sheet_names
 
     xls_template = pd.ExcelFile(TECHNOECONOMIC_INPUTS_TEMPLATE, engine="openpyxl")
-    df_template = pd.read_excel(xls_template, sheet_name="E-Cooking", engine="openpyxl")
+    df_template = pd.read_excel(xls_template, sheet_name="Electricity", engine="openpyxl")
 
     missing_sheets = [s for s in expected_sheets if s not in existing_sheets]
 
@@ -382,7 +382,7 @@ async def create_technoeconomic_model(model: str, start_year: int, end_year: int
             cell_val = ws.cell(row=year_row, column=col).value
             try:
                 year = int(cell_val)
-                if year < START_YEAR_TECHNO_MODELS or year > END_YEAR_TECHNO_MODELS:
+                if year <= START_YEAR_TECHNO_MODELS or year > END_YEAR_TECHNO_MODELS:
                     cols_to_delete.append(col)
             except (TypeError, ValueError):
                 continue
@@ -508,25 +508,16 @@ def upload_techno_model(name: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Only Excel files are allowed.")
 
     contents = file.file.read()
-    try:
-        new_file = load_workbook(filename=BytesIO(contents), data_only=True, read_only=True)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid Excel file: {str(e)}")
+    new_file = load_workbook(filename=BytesIO(contents), data_only=True, read_only=True)
 
-    try:
-        new_start = new_file["Contents"]["G8"].value
-        new_end = new_file["Contents"]["G24"].value
-    except Exception:
-        raise HTTPException(status_code=400, detail="Missing 'Contents' sheet or expected cells (G8/G24).")
+    new_start = new_file["Contents"]["G8"].value
+    new_end = new_file["Contents"]["G24"].value
 
     FULL_TECHNO_INPUTS_PATH = f"{TECHNOECONOMIC_INPUTS_MODEL}{name}.xlsx"
     if not os.path.exists(FULL_TECHNO_INPUTS_PATH):
         raise HTTPException(status_code=400, detail=f"Reference technoeconomic model not found: {FULL_TECHNO_INPUTS_PATH}")
 
     ref_start, ref_end = detect_year_range(FULL_TECHNO_INPUTS_PATH)
-
-    if ref_start is None or ref_end is None:
-        raise HTTPException(status_code=400, detail="Could not detect baseline year range in reference model.")
 
     if (new_start != ref_start) or (new_end != ref_end):
         raise HTTPException(
@@ -570,13 +561,15 @@ async def get_design_capital_structure(model: str):
         shutil.copy(DESIGN_CAPITAL_STRUCTURE_TEMPLATE, FULL_DESIGN_MODEL_PATH)
 
     if START_YEAR_TECHNO_MODELS is None and END_YEAR_TECHNO_MODELS is None:
-        path = os.path.join(TECHNOECONOMIC_INPUTS_FOLDER, model)
+        path = f"{TECHNOECONOMIC_INPUTS_MODEL}{model}.xlsx"
         START_YEAR_TECHNO_MODELS, END_YEAR_TECHNO_MODELS = detect_year_range(path)
 
     xls_fuel_market = pd.ExcelFile(FUEL_MARKET_INFORMATION_PATH, engine="openpyxl")
     fuel_market_sheets = xls_fuel_market.sheet_names
     expected_sheets = [
-        "Electricity" if name.strip().lower() == "carbon" else name
+        "Electricity (Low access)" if name.strip().lower() == "carbon"
+        else "Electricity & E-Cooking" if name.strip().lower() == "electricity"
+        else name
         for name in fuel_market_sheets
     ]
 
@@ -584,7 +577,7 @@ async def get_design_capital_structure(model: str):
     existing_sheets = xls_model.sheet_names
 
     xls_template = pd.ExcelFile(DESIGN_CAPITAL_STRUCTURE_TEMPLATE, engine="openpyxl")
-    df_ecooking = pd.read_excel(xls_template, sheet_name="E-Cooking", engine="openpyxl", header=None)
+    df_ecooking = pd.read_excel(xls_template, sheet_name="Electricity & E-Cooking", engine="openpyxl", header=None)
 
     missing_sheets = [s for s in expected_sheets if s not in existing_sheets]
 
@@ -615,6 +608,7 @@ async def get_design_capital_structure(model: str):
                 if isinstance(cell_val, str) and cell_val.strip().lower() == "baseline":
                     year_row = row
                     break
+
             if year_row:
                 break
         
@@ -626,7 +620,7 @@ async def get_design_capital_structure(model: str):
             cell_val = ws.cell(row=year_row, column=col).value
             try:
                 year = int(cell_val)
-                if year < START_YEAR_TECHNO_MODELS or year > END_YEAR_TECHNO_MODELS:
+                if year <= START_YEAR_TECHNO_MODELS or year > END_YEAR_TECHNO_MODELS:
                     cols_to_delete.append(col)
             except (TypeError, ValueError):
                 pass
@@ -673,7 +667,7 @@ def reset_design_capital_structure(update: SheetUpdate):
 
     try:
         if update.sheet_name not in {"Electricity", "LPG"}:
-            template_sheet = "E-Cooking"
+            template_sheet = "Electricity & E-Cooking"
         else:
             template_sheet = update.sheet_name
 
