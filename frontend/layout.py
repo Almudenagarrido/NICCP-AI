@@ -156,7 +156,7 @@ def sidebar():
                         st.rerun()
 
                 if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == "Design Capital Structure" and st.session_state.fuel_market == None:
-                    st.session_state.fuel_market = fuel_market_sheets[0]
+                    st.session_state.fuel_market = design_capital_sections[0]
 
             with st.expander("Techno-Economic Inputs", expanded=False):
                 for sheet in technoeconomic_input_sheets:

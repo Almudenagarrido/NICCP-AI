@@ -408,10 +408,7 @@ class ManageModels:
                     success, message = self.delete_technoeconomic_model(clean_name)
                     if success:
                         st.success(message)
-                        st.rerun()
-                    else:
-                        st.error(message)
-                        st.rerun()
+                    st.rerun()
 
             if st.session_state.get(f"show_uploader_{model}", False):
                 file = st.file_uploader(
@@ -456,7 +453,7 @@ class DesignCapitalStructure:
         self.subtable_titles = {
             "Finance": "Financiation",
             "Total": "Total",
-            "Division": "Total",
+            "Division": "Division",
             "Debts": "Type"
         }
         self.subtable_heights = {
