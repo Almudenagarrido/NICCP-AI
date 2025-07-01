@@ -134,48 +134,57 @@ def sidebar():
 
     # Techno-Economic Models
     with st.sidebar:
-        if st.session_state.model: 
+        if st.session_state.model and st.session_state.model != "BAU": 
             st.markdown(f"##### Techno-Economic Model: {st.session_state.model}")
         else:
             st.markdown("##### Techno-Economic Models")
 
         if st.button("Manage Techno-Economic Models"):
             st.session_state.page = "Techno-Economic Models"
-            st.session_state.subsection = "Manage"
+            st.session_state.subsection = "Manage Techno-Economic Models"
             st.session_state.model = None
             st.session_state.fuel_market = None
             st.rerun()
 
         if st.session_state.model:
-            with st.expander("Design Capital Structure", expanded=False):
-                for sheet in design_capital_sections:
-                    if st.button(f"{sheet} Financial Plan"):
-                        st.session_state.page = "Techno-Economic Models"
-                        st.session_state.subsection = "Design Capital Structure"
-                        st.session_state.fuel_market = f"{sheet}"
-                        st.rerun()
+            if st.session_state.model != "BAU":
+                with st.expander("Design Capital Structure", expanded=False):
+                    for sheet in design_capital_sections:
+                        if st.button(f"{sheet} Financial Plan"):
+                            st.session_state.page = "Techno-Economic Models"
+                            st.session_state.subsection = "Design Capital Structure"
+                            st.session_state.fuel_market = f"{sheet}"
+                            st.rerun()
 
-                if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == "Design Capital Structure" and st.session_state.fuel_market == None:
-                    st.session_state.fuel_market = fuel_market_sheets[0]
+                    if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == "Design Capital Structure" and st.session_state.fuel_market == None:
+                        st.session_state.fuel_market = design_capital_sections[0]
 
-            with st.expander("Techno-Economic Inputs", expanded=False):
-                for sheet in technoeconomic_input_sheets:
-                    if st.button(f"{sheet} Inputs"):
-                        st.session_state.page = "Techno-Economic Models"
-                        st.session_state.subsection = "Techno-Economic Inputs"
-                        st.session_state.fuel_market = f"{sheet}"
-                        st.rerun()
+                with st.expander("Techno-Economic Inputs", expanded=False):
+                    for sheet in technoeconomic_input_sheets:
+                        if st.button(f"{sheet} Inputs"):
+                            st.session_state.page = "Techno-Economic Models"
+                            st.session_state.subsection = "Techno-Economic Inputs"
+                            st.session_state.fuel_market = f"{sheet}"
+                            st.rerun()
 
-                if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == "Techno-Economic Inputs" and st.session_state.fuel_market == None:
-                    st.session_state.fuel_market = fuel_market_sheets[0]
-            
-            if st.button("Summary Financing"):
+                    if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == "Techno-Economic Inputs" and st.session_state.fuel_market == None:
+                        st.session_state.fuel_market = fuel_market_sheets[0]
+                
+            if st.button("Carbon Credits"):
                 st.session_state.page = "Techno-Economic Models"
-                st.session_state.subsection = "Summary Financing"
+                st.session_state.subsection = "Carbon Credits"
+                st.session_state.model = None
+                st.session_state.fuel_market = None
                 st.rerun()
+            
+            if st.session_state.model != "BAU":
+                if st.button("Summary Financing"):
+                    st.session_state.page = "Techno-Economic Models"
+                    st.session_state.subsection = "Summary Financing"
+                    st.rerun()
 
         if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == None:
-            st.session_state.subsection = "Manage"
+            st.session_state.subsection = "Manage Techno-Economic Models"
             st.session_state.model = None
 
     return st.session_state.page, st.session_state.subsection, st.session_state.model, st.session_state.fuel_market
