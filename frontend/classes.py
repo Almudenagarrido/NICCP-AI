@@ -271,9 +271,10 @@ class TechnoEconomicModels:
         self.fuel_market = fuel_market
         self.cell_validator = CellValidator()
         self.subsections = {
-            "Manage": ManageModels(self.api_url),
+            "Manage Techno-Economic Models": ManageModels(self.api_url),
             "Design Capital Structure": DesignCapitalStructure(api_url, subsection, model, fuel_market, self.cell_validator),
             "Techno-Economic Inputs": TechnoEconomicInputs(api_url, subsection, model, fuel_market, self.cell_validator),
+            "Carbon Credits": CarbonCredits(api_url, subsection, model, self.cell_validator),
             "Summary Financing": SummaryFinancing(self.api_url)
         }
 
@@ -351,31 +352,63 @@ class ManageModels:
 
     def model_creator(self):
         st.markdown("#### ➕ Create New Techno-Economic Model")
-        with st.form("create_model_form"):
-            name = st.text_input("Model Name")
-            col1, col2 = st.columns(2)
-            with col1:
-                start_year = st.number_input("Start Year", step=1, format="%d")
-            with col2:
-                end_year = st.number_input("End Year", step=1, format="%d")
-            create = st.form_submit_button("Create")
 
-            if create:
-                if not name.strip():
-                    st.error("Model name cannot be empty.")
-                elif start_year >= end_year:
-                    st.error("Start year must be less than end year.")
-                else:
-                    success, msg = self.create_technoeconomic_model(name.strip(), int(start_year), int(end_year))
-                    if success:
-                        st.success(msg)
-                        st.session_state["model_name_input"] = ""
-                        st.session_state["start_year_input"] = 0
-                        st.session_state["end_year_input"] = 0
+        models = self.list_technoeconomic_models()
+        bau_exists = any(self.remove_extension(m).lower() == "bau" for m in models)
+
+        if not bau_exists:
+            st.info("First create the BAU (Business As Usual) model.")
+            with st.form("create_bau_form"):
+                start_year = st.number_input("Start Year (BAU)", step=1, format="%d")
+                end_year = st.number_input("End Year (BAU)", step=1, format="%d")
+
+                upload_file = st.file_uploader("Upload Excel file for BAU (optional)", type=self.valid_extensions)
+
+                create = st.form_submit_button("Create BAU Model")
+
+                if create:
+                    if start_year >= end_year:
+                        st.error("Start year must be less than end year.")
+                    else:
+                        self.create_technoeconomic_model("bau", start_year, end_year)
+                        st.success(f"BAU model created succesfully.")
+                        if upload_file:
+                            upload_success = self.upload_technoeconomic_model("BAU", upload_file)
+                            if upload_success:
+                                st.success("Excel file successfully uploaded for BAU.")
+                            else:
+                                st.error("Failed to upload Excel file for BAU.")
                         time.sleep(1)
                         st.rerun()
+
+        else:
+            with st.form("create_model_form"):
+                name = st.text_input("Model Name")
+                col1, col2 = st.columns(2)
+                with col1:
+                    start_year = st.number_input("Start Year", step=1, format="%d")
+                with col2:
+                    end_year = st.number_input("End Year", step=1, format="%d")
+                create = st.form_submit_button("Create")
+
+                if create:
+                    if not name.strip():
+                        st.error("Model name cannot be empty.")
+                    elif start_year >= end_year:
+                        st.error("Start year must be less than end year.")
+                    elif name.strip().lower() == "bau":
+                        st.error("The model name 'BAU' is reserved for the Business As Usual model.")
                     else:
-                        st.error(msg)
+                        success, msg = self.create_technoeconomic_model(name.strip(), int(start_year), int(end_year))
+                        if success:
+                            st.success(msg)
+                            st.session_state["model_name_input"] = ""
+                            st.session_state["start_year_input"] = 0
+                            st.session_state["end_year_input"] = 0
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.error(msg)
 
     def show_technoeconomic_models(self, models):
         for model in models:
@@ -384,8 +417,12 @@ class ManageModels:
 
             with col1:
                 if st.button(f"📄 {clean_name}"):
-                    st.session_state.page = "Techno-Economic Models"
-                    st.session_state.subsection = "Design Capital Structure"
+                    if clean_name == "BAU":
+                        st.session_state.page = "Techno-Economic Models"
+                        st.session_state.subsection = "Carbon Credits"
+                    else:
+                        st.session_state.page = "Techno-Economic Models"
+                        st.session_state.subsection = "Design Capital Structure"
                     st.session_state.model = clean_name
                     st.rerun()
 
@@ -858,6 +895,17 @@ class TechnoEconomicInputs:
             self.reset_sheet()
             time.sleep(1)
             st.rerun()
+
+
+class CarbonCredits:
+    def __init__(self, api_base, subsection, model, cell_validator):
+        self.api_base = api_base
+        self.subsection = subsection
+        self.model = model
+        self.cell_validator = cell_validator 
+
+    def __call__(self):
+        pass
 
 
 class SummaryFinancing:
