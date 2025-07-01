@@ -458,7 +458,7 @@ class ManageModels:
                     if any(file.name.lower().endswith(f".{ext}") for ext in self.valid_extensions):
                         upload_success = self.upload_technoeconomic_model(clean_name, file)
                         if upload_success:
-                            st.success(f"Uploaded to model '{model}'")
+                            st.success(f"Information uploaded to 'Techno-Economic Inputs' file for model '{model}'")
                             st.session_state[f"show_uploader_{model}"] = False
                             time.sleep(2)
                             st.rerun()

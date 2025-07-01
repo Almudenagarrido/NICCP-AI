@@ -507,7 +507,8 @@ def delete_techno_model(model: str):
             TECHNOECONOMIC_MODELS_FOLDER,
             TECHNOECONOMIC_INPUTS_FOLDER,
             DESIGN_CAPITAL_STRUCTURE_FOLDER,
-            CARBON_CREDITS_FOLDER, FUEL_MARKET_INFORMATION_FOLDER,
+            CARBON_CREDITS_FOLDER, 
+            FUEL_MARKET_INFORMATION_FOLDER,
         ]
         for folder in folders:
             for filename in os.listdir(folder):
