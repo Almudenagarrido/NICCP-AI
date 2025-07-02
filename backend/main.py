@@ -3,13 +3,13 @@ from fastapi.responses import FileResponse
 import os
 import re
 from openpyxl import load_workbook
-from openpyxl.utils import range_boundaries
 from io import BytesIO
 import shutil
 import tempfile
 import pandas as pd
 from pydantic import BaseModel
 from typing import List, Dict
+import excel_utils as e
 
 
 FUEL_MARKET_INFORMATION_FOLDER = "./fuel-market-information"
@@ -36,45 +36,6 @@ FOLDERS = [
 VALID_EXTENSIONS = (".xlsx", ".xlsm", ".xls", ".xltx", ".xltm")
 START_YEAR_TECHNO_MODELS = None
 END_YEAR_TECHNO_MODELS = None
-
-CELLS_MAPPING_MODEL_TO_TECHNO = [
-    ("Res-Cash", "G16:R16", "Electricity", "D2:O2"),
-
-    ("Res-Cash", "G19:R19", "Electricity", "D4:O4"),
-    ("Res-Cash", "G17:R17", "Electricity", "D5:O5"),
-    ("Res-Cash", "G20:R20", "Electricity", "D6:O6"),
-    ("Res-Cash", "G18:R18", "Electricity", "D7:O7"),
-    ("Financial", "G13", "Electricity", "D8"),
-
-    ("Res-Cash", "G23:R23", "Electricity", "D10:O10"),
-    ("Res-Cash", "G21:R21", "Electricity", "D11:O11"),
-    ("Res-Cash", "G24:R24", "Electricity", "D12:O12"),
-    ("Res-Cash", "G22:R22", "Electricity", "D13:O13"),
-    ("Financial", "G17", "Electricity", "D14"),
-
-    ("Res-Cash", "G28:R28", "Electricity", "D16:O16"),
-    ("Res-Cash", "G29:R29", "Electricity", "D17:O17"),
-    ("Res-Cash", "G30:R30", "Electricity", "D18:O18"),
-    ("Res-Cash", "G17", "Electricity", "D19"),
-
-    ("Res-Cash", "G34:R34", "LPG", "D2:O2"),
-
-    ("Res-Cash", "G35:R35", "LPG", "D4:O4"),
-    ("Res-Cash", "G37:R37", "LPG", "D5:O5"),
-    ("Res-Cash", "G36:R36", "LPG", "D6:O6"),
-    ("Res-Cash", "G38:R38", "LPG", "D7:O7"),
-    ("Financial", "G27", "LPG", "D8"),
-    ("Financial", "G29", "LPG", "D9"),
-
-    ("Res-Cash", "G40:R40", "LPG", "D11:O11"),
-    ("Res-Cash", "G42:R42", "LPG", "D12:O12"),
-    ("Res-Cash", "G41:R41", "LPG", "D13:O13"),
-    ("Res-Cash", "G43:R43", "LPG", "D14:O14"),
-    ("Res-Cash", "G39:R39", "LPG", "D15:O15"),
-    ("Financial", "G32", "LPG", "D16"),
-
-    ("Res-Cash", "G47:R58", "Rest of subsidies or taxes", "D2:O13"),
-]
 
 
 class SheetUpdate(BaseModel):
@@ -563,38 +524,6 @@ def delete_techno_model(model: str):
 
     return {"status": "deleted"}
 
-def fill_contents_from_model(uploaded_model_path: str, techno_inputs_path: str):
-    try:
-        src_wb = load_workbook(uploaded_model_path, data_only=True, read_only=True)
-        dst_wb = load_workbook(techno_inputs_path)
-
-        for src_sheet, src_range, dst_sheet, dst_range in CELLS_MAPPING_MODEL_TO_TECHNO:
-            src_ws = src_wb[src_sheet]
-            dst_ws = dst_wb[dst_sheet]
-
-            src_min_col, src_min_row, src_max_col, src_max_row = range_boundaries(src_range)
-            dst_min_col, dst_min_row, dst_max_col, dst_max_row = range_boundaries(dst_range)
-
-            src_rows = src_max_row - src_min_row + 1
-            src_cols = src_max_col - src_min_col + 1
-            dst_rows = dst_max_row - dst_min_row + 1
-            dst_cols = dst_max_col - dst_min_col + 1
-
-            if src_rows != dst_rows or src_cols != dst_cols:
-                raise ValueError(
-                    f"Size mismatch between source {src_range} and destination {dst_range}."
-                )
-
-            for i in range(src_rows):
-                for j in range(src_cols):
-                    value = src_ws.cell(row=src_min_row + i, column=src_min_col + j).value
-                    dst_ws.cell(row=dst_min_row + i, column=dst_min_col + j, value=value)
-
-        dst_wb.save(techno_inputs_path)
-
-    except Exception as e:
-        raise RuntimeError(f"Error actualizando plantilla con datos del modelo: {str(e)}")
-
 @app.post("/upload-technoeconomic-model/{name}")
 def upload_techno_model(name: str, file: UploadFile = File(...)):
     global START_YEAR_TECHNO_MODELS, END_YEAR_TECHNO_MODELS
@@ -630,8 +559,10 @@ def upload_techno_model(name: str, file: UploadFile = File(...)):
     with open(UPLOADED_MODEL_PATH, "wb") as f:
             f.write(contents)
 
+    e.fill_contents_from_source(UPLOADED_MODEL_PATH, CARBON_CREDITS_PATH, name, carbon_flag=True)
+
     if name.lower() != "bau":
-        fill_contents_from_model(UPLOADED_MODEL_PATH, reference_path)
+        e.fill_contents_from_source(UPLOADED_MODEL_PATH, reference_path, name, carbon_flag=False)
 
     return {"status": "uploaded"}
 
@@ -663,7 +594,7 @@ async def get_design_capital_structure(model: str):
 
     if START_YEAR_TECHNO_MODELS is None and END_YEAR_TECHNO_MODELS is None:
         path = f"{TECHNOECONOMIC_INPUTS_MODEL}{model}.xlsx"
-        START_YEAR_TECHNO_MODELS, END_YEAR_TECHNO_MODELS = detect_year_range(path, model)
+        START_YEAR_TECHNO_MODELS, END_YEAR_TECHNO_MODELS = detect_year_range(path)
 
     xls_fuel_market = pd.ExcelFile(FUEL_MARKET_INFORMATION_PATH, engine="openpyxl")
     fuel_market_sheets = xls_fuel_market.sheet_names
