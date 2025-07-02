@@ -25,6 +25,13 @@ TECHNOECONOMIC_INPUTS_MODEL = os.path.join(TECHNOECONOMIC_INPUTS_FOLDER, "techno
 CARBON_CREDITS_FOLDER = "./carbon-credits"
 CARBON_CREDITS_TEMPLATE_PATH = os.path.join(CARBON_CREDITS_FOLDER, "carbon-credits-template.xlsx")
 CARBON_CREDITS_PATH = os.path.join(CARBON_CREDITS_FOLDER, "carbon-credits.xlsx")
+FOLDERS = [
+    TECHNOECONOMIC_MODELS_FOLDER,
+    TECHNOECONOMIC_INPUTS_FOLDER,
+    DESIGN_CAPITAL_STRUCTURE_FOLDER,
+    CARBON_CREDITS_FOLDER, 
+    FUEL_MARKET_INFORMATION_FOLDER,
+]
 
 VALID_EXTENSIONS = (".xlsx", ".xlsm", ".xls", ".xltx", ".xltm")
 START_YEAR_TECHNO_MODELS = None
@@ -185,8 +192,10 @@ async def save_fuel_market_information(update: SheetUpdate):
 
 @app.post("/reset-fuel-market-information")
 def reset_fuel_market_information(update: SheetUpdate):
+    
     if not os.path.exists(FUEL_MARKET_INFORMATION_PATH):
         return {"error": "Fuel market information file does not exist"}
+    
     if not os.path.exists(FUEL_MARKET_INFORMATION_TEMPLATE):
         return {"error": "Template file is missing"}
 
@@ -282,7 +291,7 @@ def list_techno_models():
                 model = match.group(1).strip()
                 if model:
                     model_names.add(model)
-
+    
     models_sorted = sorted(model_names)
     if "BAU" in models_sorted:
         models_sorted.remove("BAU")
@@ -290,7 +299,7 @@ def list_techno_models():
 
     return {"models": models_sorted}
 
-def detect_year_range(path, name):
+def detect_year_range(path):
     wb = load_workbook(path, data_only=True)
     for ws in wb.worksheets:
         for row in range(1, ws.max_row + 1):
@@ -318,7 +327,7 @@ async def create_technoeconomic_model(model: str, start_year: int, end_year: int
     if start_year >= end_year:
         return {"error": "Start year must be less than end year"}
 
-    if model == "bau":
+    if model.lower() == "bau":
         file_path = CARBON_CREDITS_PATH
         template_path = CARBON_CREDITS_TEMPLATE_PATH
     else:
@@ -352,7 +361,7 @@ async def create_technoeconomic_model(model: str, start_year: int, end_year: int
 
         wb_cc.save(CARBON_CREDITS_PATH)
 
-        ref_start, ref_end = detect_year_range(CARBON_CREDITS_PATH, "bau")
+        ref_start, ref_end = detect_year_range(CARBON_CREDITS_PATH)
         if ref_start != start_year or ref_end != end_year:
             return {
                 "error": f"Year range mismatch: expected {ref_start}-{ref_end}, got {start_year}-{end_year}"
@@ -361,7 +370,7 @@ async def create_technoeconomic_model(model: str, start_year: int, end_year: int
     if START_YEAR_TECHNO_MODELS is None or END_YEAR_TECHNO_MODELS is None:
         START_YEAR_TECHNO_MODELS = start_year
         END_YEAR_TECHNO_MODELS = end_year
-
+        
     wb = load_workbook(file_path)
 
     if model == "bau":
@@ -375,7 +384,7 @@ async def create_technoeconomic_model(model: str, start_year: int, end_year: int
                     break
             if year_row:
                 break
-
+            
         if year_row:
             cols_to_delete = []
             for col in range(3, ws.max_column + 1):
@@ -386,7 +395,7 @@ async def create_technoeconomic_model(model: str, start_year: int, end_year: int
                         cols_to_delete.append(col)
                 except (TypeError, ValueError):
                     continue
-
+            
             for col_idx in reversed(cols_to_delete):
                 ws.delete_cols(col_idx)
     else:
@@ -400,7 +409,7 @@ async def create_technoeconomic_model(model: str, start_year: int, end_year: int
         xls_model = pd.ExcelFile(file_path, engine="openpyxl")
         existing_sheets = xls_model.sheet_names
 
-        xls_template = pd.ExcelFile(TECHNOECONOMIC_INPUTS_TEMPLATE, engine="openpyxl")
+        xls_template = pd.ExcelFile(template_path, engine="openpyxl")
         df_template = pd.read_excel(xls_template, sheet_name="Electricity", engine="openpyxl")
 
         missing_sheets = [s for s in expected_sheets if s not in existing_sheets]
@@ -451,6 +460,7 @@ async def create_technoeconomic_model(model: str, start_year: int, end_year: int
                 ws.delete_cols(col_idx)
 
     wb.save(file_path)
+    wb.close()
 
     return {"success": True, "message": f"Model '{model}' created successfully."}
 
@@ -503,14 +513,7 @@ def delete_techno_model(model: str):
     model_lower = model.lower()
 
     if model_lower == "bau":
-        folders = [
-            TECHNOECONOMIC_MODELS_FOLDER,
-            TECHNOECONOMIC_INPUTS_FOLDER,
-            DESIGN_CAPITAL_STRUCTURE_FOLDER,
-            CARBON_CREDITS_FOLDER, 
-            FUEL_MARKET_INFORMATION_FOLDER,
-        ]
-        for folder in folders:
+        for folder in FOLDERS:
             for filename in os.listdir(folder):
                 file_path = os.path.join(folder, filename)
                 if os.path.isfile(file_path) and "template" not in filename.lower():
@@ -540,6 +543,21 @@ def delete_techno_model(model: str):
             except Exception as e:
                 errors.append(f"Failed to delete {path}: {str(e)}")
 
+    try:
+        carbon_file = f"{CARBON_CREDITS_PATH}"
+        sheet = "Carbon Credits"
+
+        df = pd.read_excel(carbon_file, sheet_name=sheet)
+        first_col = df.columns[0]
+        original_col = df[first_col]
+
+        mask = ~original_col.astype(str).str.lower().str.contains(model.lower())
+        df_filtered = df[mask]
+
+        with pd.ExcelWriter(carbon_file, mode='a', if_sheet_exists='replace') as writer:
+            df_filtered.to_excel(writer, sheet_name=sheet, index=False)
+    except Exception as e:
+        errors.append(f"Failed to update Carbon Credits file: {str(e)}")
     if errors:
         raise HTTPException(status_code=500, detail={"errors": errors})
 
@@ -601,8 +619,7 @@ def upload_techno_model(name: str, file: UploadFile = File(...)):
         if not os.path.exists(reference_path):
             raise HTTPException(status_code=400, detail=f"Reference technoeconomic model not found: {reference_path}")
 
-    ref_start, ref_end = detect_year_range(reference_path, name)
-
+    ref_start, ref_end = detect_year_range(reference_path)
     if (new_start != ref_start) or (new_end != ref_end):
         raise HTTPException(
             status_code=400,
@@ -623,7 +640,7 @@ def upload_techno_model(name: str, file: UploadFile = File(...)):
 @app.get("/design-capital-structure/{model}")
 async def get_design_capital_structure(model: str):
     global START_YEAR_TECHNO_MODELS, END_YEAR_TECHNO_MODELS
-    if model.lower() == "none":
+    if model.lower() in ["none", "bau"]:
         if not os.path.exists(DESIGN_CAPITAL_STRUCTURE_TEMPLATE):
             return {"error": "Template file is missing"}
         
@@ -775,7 +792,7 @@ def reset_design_capital_structure(update: SheetUpdate):
 # Techno-Economic Inputs
 @app.get("/technoeconomic-inputs/{model}")
 async def get_technoeconomic_inputs(model: str):
-    if model.lower() == "none":
+    if model.lower() in ["none", "bau"]:
         if not os.path.exists(TECHNOECONOMIC_INPUTS_TEMPLATE):
             return {"error": "Template file is missing"}
         
@@ -846,85 +863,54 @@ async def reset_technoeconomic_inputs(update: SheetUpdate):
 # Carbon Credits
 @app.get("/carbon-credits")
 def get_carbon_credits():
-    models = [
-        os.path.splitext(f)[0].removeprefix("technoeconomic-inputs-")
-        for f in os.listdir(TECHNOECONOMIC_INPUTS_FOLDER)
-        if f.lower().endswith(tuple(ext.lower() for ext in VALID_EXTENSIONS)) and "template" not in f.lower()
-    ]
 
-    if not os.path.exists(FUEL_MARKET_INFORMATION_PATH):
-        if os.path.exists(FUEL_MARKET_INFORMATION_TEMPLATE):
-            shutil.copy(FUEL_MARKET_INFORMATION_TEMPLATE, FUEL_MARKET_INFORMATION_PATH)
-        else:
-            return {"error": "Template file is missing"}
+    if not os.path.exists(CARBON_CREDITS_PATH):
+        return {"error": "'Carbon credits' file is missing, BAU model was not initialized properly."}
     
-    wb = load_workbook(FUEL_MARKET_INFORMATION_PATH)
-
-    for ws in wb.worksheets:
-        year_row = None
-        for row in range(1, ws.max_row + 1):
-            for col in range(1, ws.max_column + 1):
-                cell_val = ws.cell(row=row, column=col).value
-                if isinstance(cell_val, str) and cell_val.strip().lower() == "baseline":
-                    year_row = row
-                    break
-            if year_row:
-                break
-        
-        if year_row is None:
-            continue
-
-        cols_to_delete = []
-        for col in range(3, ws.max_column + 1):
-            cell_val = ws.cell(row=year_row, column=col).value
-            try:
-                year = int(cell_val)
-                if year <= START_YEAR_TECHNO_MODELS or year > END_YEAR_TECHNO_MODELS:
-                    cols_to_delete.append(col)
-            except (TypeError, ValueError):
-                pass
-
-        for col_idx in reversed(cols_to_delete):
-            ws.delete_cols(col_idx)
-
-        if ws.title == "LPG":
-            existing_rows = {}
-
-            for i in range(2, ws.max_row + 1):
-                val = ws.cell(row=i, column=1).value
-                if val:
-                    key = str(val).strip()
-                    existing_rows[key] = i
-            
-            expected_rows = {
-                f"% EBITDA Margin - {model}" for model in models
-            }.union({
-                f"OPEX subsidies - {model}" for model in models
-            })
-
-            for row_label, row_num in list(existing_rows.items())[::-1]:
-                if (row_label.startswith("% EBITDA Margin - ") or row_label.startswith("OPEX subsidies - ")) and row_label not in expected_rows:
-                    ws.delete_rows(row_num)
-
-            existing_inputs = {
-                str(ws.cell(row=i, column=1).value).strip()
-                for i in range(2, ws.max_row + 1)
-                if ws.cell(row=i, column=1).value
-            }
-
-            for model_name in models:
-                for row_label in [f"% EBITDA Margin - {model_name}", f"OPEX subsidies - {model_name}"]:
-                    if row_label not in existing_inputs:
-                        new_row = ws.max_row + 1
-                        ws.cell(row=new_row, column=1).value = row_label
-                        ws.cell(row=new_row, column=2).value = "%"
-                        for col in range(3, ws.max_column + 1):
-                            ws.cell(row=new_row, column=col).value = 0
-
-    wb.save(FUEL_MARKET_INFORMATION_PATH)
-
     return FileResponse(
-        FUEL_MARKET_INFORMATION_PATH,
+        CARBON_CREDITS_PATH,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename="fuel-market-information.xlsx"
+        filename="carbon-credits.xlsx"
     )
+
+@app.post("/save-carbon-credits")
+async def save_carbon_credits(update: SheetUpdate):
+
+    df_new = pd.DataFrame(update.data)
+
+    if 'index' in df_new.columns:
+        df_new.set_index('index', inplace=True)
+
+    excel_path = CARBON_CREDITS_PATH
+    with pd.ExcelWriter(excel_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
+        df_new.to_excel(writer, sheet_name=update.sheet_name, index=False)
+
+    return {"message": "The file with the fuel market information was updated successfully"}
+
+@app.post("/reset-carbon-credits")
+def reset_carbon_credits(update: SheetUpdate):
+    
+    if not os.path.exists(CARBON_CREDITS_PATH):
+        return {"error": "Fuel market information file does not exist"}
+    
+    if not os.path.exists(CARBON_CREDITS_TEMPLATE_PATH):
+        return {"error": "Template file is missing"}
+    
+    try:
+        template_df = pd.read_excel(CARBON_CREDITS_TEMPLATE_PATH, sheet_name=update.sheet_name)
+        wb = load_workbook(CARBON_CREDITS_PATH)
+
+        if update.sheet_name in wb.sheetnames:
+            std = wb[update.sheet_name]
+            wb.remove(std)
+
+        wb.save(CARBON_CREDITS_PATH)
+
+        with pd.ExcelWriter(CARBON_CREDITS_PATH, engine='openpyxl', mode='a') as writer:
+            template_df.to_excel(writer, sheet_name=update.sheet_name, index=False)
+
+        return {"message": f"'{update.sheet_name}' was reset to template version"}
+
+    except Exception as e:
+        return {"error": f"Failed to reset: {str(e)}"}
+

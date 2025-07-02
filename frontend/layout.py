@@ -134,7 +134,7 @@ def sidebar():
 
     # Techno-Economic Models
     with st.sidebar:
-        if st.session_state.model and st.session_state.model != "BAU": 
+        if st.session_state.model: 
             st.markdown(f"##### Techno-Economic Model: {st.session_state.model}")
         else:
             st.markdown("##### Techno-Economic Models")
@@ -173,8 +173,6 @@ def sidebar():
             if st.button("Carbon Credits"):
                 st.session_state.page = "Techno-Economic Models"
                 st.session_state.subsection = "Carbon Credits"
-                st.session_state.model = None
-                st.session_state.fuel_market = None
                 st.rerun()
             
             if st.session_state.model != "BAU":
