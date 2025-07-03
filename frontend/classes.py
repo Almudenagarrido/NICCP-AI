@@ -1,10 +1,8 @@
 import streamlit as st
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
-from st_aggrid.shared import JsCode
 import pandas as pd
 import numpy as np
 import requests
-import uuid
 from io import BytesIO
 import time
 
@@ -16,8 +14,8 @@ class CellValidator:
             "%": self.validate_percentage,
             "days": self.validate_positive_integer,
             "years": self.validate_positive_integer,
-            "$ / ton": self.validate_positive_integer,
-            "m$": self.validate_positive_integer,
+            "$ / ton": self.validate_positive_value,
+            # "m$": self.validate_positive_value,
         }
 
     def validate_percentage(self, value):
@@ -38,6 +36,17 @@ class CellValidator:
             val = float(value)
             if val < 0 or not float(val).is_integer():
                 return "Value must be a positive integer"
+        except:
+            return "Not a valid number"
+        return None
+
+    def validate_positive_value(self, value):
+        try:
+            if pd.isna(value) or value == "-":
+                return None
+            val = float(value)
+            if val < 0:
+                return "Value must be positive"
         except:
             return "Not a valid number"
         return None
@@ -504,7 +513,7 @@ class DesignCapitalStructure:
             res = requests.get(url)
             if res.status_code != 200:
                 st.error("The file 'design-capital-structure.xlsx' was not found.")
-                return None
+                return []
 
             file_data = BytesIO(res.content)
             xls = pd.ExcelFile(file_data)
@@ -512,7 +521,7 @@ class DesignCapitalStructure:
 
         except Exception as e:
             st.error(f"Error fetching capital structure: {e}")
-            return None
+            return []
 
     def fetch_and_load(self):
         url = f"{self.get_url}/{self.model}"
@@ -646,7 +655,7 @@ class DesignCapitalStructure:
             invalid_cells = self.cell_validator.cell_validations(subdf, editable_cols)
             if invalid_cells:
                 for _, input_name, col, value, error in invalid_cells:
-                    st.warning(f"[{key}] Invalid value '{value}' in row '{input_name}' (column '{col}'): {error}")
+                    st.warning(f"[Table {key}] Invalid value '{value}' in row '{input_name}' (column '{col}'): {error}")
                 return False
 
         payload = {
@@ -820,6 +829,12 @@ class TechnoEconomicInputs:
             if col in self.editable_columns:
                 df[col] = df[col].fillna("-")
 
+        invalid_cells = self.cell_validator.cell_validations(df, self.editable_columns)
+        if invalid_cells:
+            for _, input_name, col, value, error in invalid_cells:
+                st.warning(f"Invalid value '{value}' in row '{input_name}' (column '{col}'): {error}")
+            return False
+
         data_json = df.reset_index(drop=True).to_dict(orient="records")
         payload = {
             "model": self.model,
@@ -884,9 +899,10 @@ class TechnoEconomicInputs:
         self.show_excel_editor(fuel_market=False)
 
         if st.button("Save"):
-            self.save_changes()
-            time.sleep(1)
-            st.rerun()
+            saved = self.save_changes()
+            if saved:
+                time.sleep(2)
+                st.rerun()
 
         if st.button("Reset"):
             self.reset_sheet()
