@@ -13,16 +13,8 @@
         },
         {
             "formula_steps": [
-                {
-                "op": "multiply",
-                "operands": [0, 1],
-                "result": "temp1"
-                },
-                {
-                "op": "multiply",
-                "operands": ["temp1", 2],
-                "result": "final"
-                }
+                {"op": "multiply", "operands": [0, 1], "result": "temp1"},
+                {"op": "multiply", "operands": ["temp1", 2], "result": "final"}
             ],
             "targets": "./carbon-credits/carbon-credits.xlsx::Carbon Credits::Potential income from Carbon Credits in the {model} Plan - right",
             "source_labels": [

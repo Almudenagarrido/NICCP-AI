@@ -53,6 +53,18 @@ OPS_MAP = {
     "subtract": lambda x, y: x - y,
     "add": lambda x, y: x + y,
     "multiply": lambda x, y: x * y,
+    "divide": lambda x, y: x / y if y != 0 else float("inf"),
+    "gt": lambda x, y: x > y,
+    "lt": lambda x, y: x < y,
+    "gte": lambda x, y: x >= y,
+    "lte": lambda x, y: x <= y,
+    "eq": lambda x, y: x == y,
+    "neq": lambda x, y: x != y,
+    "max": lambda x, y: max(x, y),
+    "min": lambda x, y: min(x, y),
+    "if": lambda condition, true_val, false_val: true_val if condition else false_val,
+    "negate": lambda x: -x,
+    "abs": lambda x: abs(x),
 }
 
 
@@ -101,10 +113,6 @@ def fill_contents_from_source(source_path: str, destiny_path: str, model_name:st
 
     except Exception as e:
         raise RuntimeError(f"Error actualizando plantilla con datos del modelo: {str(e)}")
-
-
-# { "op": "multiply", "operands": ["temp1", 2], "result": "temp2" }
-# { "op": "multiply", "operands": ["temp2", 2], "result": "final" }
 
 def expand_formulas_by_models(formulas_json: dict, models: list) -> dict:
     expanded_json = {}
@@ -278,6 +286,7 @@ def apply_formulas(file_path, formulas_json_path, models):
         wbs[file_path_norm].save(file_path_norm)
 
 
+# Formulas que faltan
 """{
             "formula_steps": [
                 { "op": "gt", "operands": [0, 1], "result": "cond" },
