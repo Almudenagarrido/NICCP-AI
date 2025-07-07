@@ -25,6 +25,13 @@ TECHNOECONOMIC_INPUTS_MODEL = os.path.join(TECHNOECONOMIC_INPUTS_FOLDER, "techno
 CARBON_CREDITS_FOLDER = "./carbon-credits"
 CARBON_CREDITS_TEMPLATE_PATH = os.path.join(CARBON_CREDITS_FOLDER, "carbon-credits-template.xlsx")
 CARBON_CREDITS_PATH = os.path.join(CARBON_CREDITS_FOLDER, "carbon-credits.xlsx")
+FINANCIAL_STATEMENTS_FOLDER = "./financial-statements"
+FINANCIAL_STATEMENTS_TEMPLATE = os.path.join(FINANCIAL_STATEMENTS_FOLDER, "financial-statements-template.xlsx")
+FINANCIAL_STATEMENTS_MODEL = os.path.join(FINANCIAL_STATEMENTS_FOLDER, "financial-statements-")
+CAPEX_MARKET_FOLDER = "./capex-fuel-markets"
+CAPEX_MARKET_TEMPLATE = os.path.join(CAPEX_MARKET_FOLDER, "capex-market-template.xlsx")
+CAPEX_MARKET_MODEL = os.path.join(CAPEX_MARKET_FOLDER, "capex-market-")
+FORMULAS_JSON_PATH = "./formulas_map.json"
 FOLDERS = [
     TECHNOECONOMIC_MODELS_FOLDER,
     TECHNOECONOMIC_INPUTS_FOLDER,

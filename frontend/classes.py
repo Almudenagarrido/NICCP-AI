@@ -729,7 +729,7 @@ class TechnoEconomicInputs:
             res = requests.get(url)
             if res.status_code != 200:
                 st.error("The file 'technoeconomic-inputs.xlsx' was not found.")
-                return None
+                return []
 
             file_data = BytesIO(res.content)
             with pd.ExcelFile(file_data) as xls:
@@ -737,7 +737,7 @@ class TechnoEconomicInputs:
 
         except Exception as e:
             st.error(f"Error fetching techno-economic inputs: {e}")
-            return None
+            return []
 
     def fetch_and_load(self, fuel_market: bool):
         
