@@ -96,6 +96,11 @@ def sidebar():
     if 'E-Cooking' in design_capital_sections and 'Electricity' in design_capital_sections and 'Electricity (Low access)' in design_capital_sections:
         design_capital_sections = ['E-Cooking', 'Electricity', 'Electricity (Low access)'] + [s for s in design_capital_sections if s != 'E-Cooking' and s != 'Electricity' and s != 'Electricity (Low access)']
 
+    cfm = c.CapexFuelMarket(API_URL, st.session_state.subsection, st.session_state.model, st.session_state.fuel_market)
+    capex_market_sections = cfm.get_capex_markets()
+    if 'Electricity' in capex_market_sections:
+        capex_market_sections = ['Electricity'] + [s for s in capex_market_sections if s !='Electricity']
+
     # Fuel Market Information
     with st.sidebar:
         with st.expander("Fuel Market Information", expanded=False):
@@ -186,6 +191,15 @@ def sidebar():
                         if st.button(f"{sheet} - FFSS"):
                             st.session_state.page = "Techno-Economic Models"
                             st.session_state.subsection = "Financial Statements"
+                            st.session_state.fuel_market = f"{sheet}"
+                            st.rerun()
+
+            if st.session_state.model != None:
+                with st.expander("Capex Fuel Market", expanded=False):
+                    for sheet in capex_market_sections:
+                        if st.button(f"{sheet} - CAPEX"):
+                            st.session_state.page = "Techno-Economic Models"
+                            st.session_state.subsection = "Capex Fuel Market"
                             st.session_state.fuel_market = f"{sheet}"
                             st.rerun()
             
