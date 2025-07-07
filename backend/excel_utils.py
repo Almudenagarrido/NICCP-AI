@@ -51,20 +51,11 @@ CELLS_MAPPING_MODEL_TO_CARBON = [
 
 OPS_MAP = {
     "subtract": lambda x, y: x - y,
-    "add": lambda x, y: x + y,
     "multiply": lambda x, y: x * y,
-    "divide": lambda x, y: x / y if y != 0 else float("inf"),
+    "multiply_per": lambda x, y: (x * y)/100,
     "gt": lambda x, y: x > y,
-    "lt": lambda x, y: x < y,
-    "gte": lambda x, y: x >= y,
-    "lte": lambda x, y: x <= y,
-    "eq": lambda x, y: x == y,
-    "neq": lambda x, y: x != y,
-    "max": lambda x, y: max(x, y),
-    "min": lambda x, y: min(x, y),
+    "pos_or_cero": lambda x: max(x, 0),
     "if": lambda condition, true_val, false_val: true_val if condition else false_val,
-    "negate": lambda x: -x,
-    "abs": lambda x: abs(x),
 }
 
 
@@ -245,20 +236,32 @@ def apply_formulas(file_path, formulas_json_path, models):
                 formula_steps = formula.get("formula_steps", [])
 
                 targets_cells = get_numeric_cell_refs_label(wbs, file_path_norm, sheet_name, targets_label, 1)
-                source_cells_list = [
-                    get_numeric_cell_refs_label(wbs, file_path_norm, sheet_name, source_label, 1)
-                    for source_label in source_labels
-                ]
+                source_cells_list = []
+                for source_label in source_labels:
+                    parts = source_label.split("::")
+                    
+                    if len(parts) == 3:
+                        src_path, src_sheet, src_label = parts
+                    else:
+                        src_path, src_sheet = file_path_norm, sheet_name
+                        src_label = source_label
 
-                length = len(targets_cells)
-                if any(len(src_list) != length and len(src_list) != 1 for src_list in source_cells_list):
-                    continue
+                    src_path_norm = os.path.normpath(src_path)
+                    if src_path_norm not in wbs:
+                        wbs[src_path_norm] = load_workbook(src_path_norm)                 
+
+                    refs = get_numeric_cell_refs_label(wbs, src_path_norm, src_sheet, src_label, 1)
+                    source_cells_list.append((src_path_norm, src_sheet, refs))
+
+                    length = len(targets_cells)
+                    if any(len(refs) != length and len(refs) != 1 for (_, _, refs) in source_cells_list):
+                        continue
 
                 for i in range(length):
                     values = []
-                    for src_list in source_cells_list:
+                    for src_path_norm, src_sheet, src_list in source_cells_list:
                         ref = src_list[i] if len(src_list) > 1 else src_list[0]
-                        cell = get_cell_value_from_ref(wbs, ref, file_path_norm, sheet_name)
+                        cell = get_cell_value_from_ref(wbs, ref, src_path_norm, src_sheet)
                         val = cell.value
                         if isinstance(val, str):
                             try:
@@ -271,34 +274,40 @@ def apply_formulas(file_path, formulas_json_path, models):
                     for step in formula_steps:
                         op = step["op"]
                         operands = step["operands"]
-                        val1 = get_val(operands[0], values, results)
-                        val2 = get_val(operands[1], values, results)
-                        if op in OPS_MAP:
-                            res = OPS_MAP[op](val1, val2)
+                        if op == "range":
+                            res = i + 1
+                        elif op == "offset":
+                            source_index = operands[0]
+                            offset = get_val(operands[1], values, results)
+
+                            if 0 <= source_index < len(source_cells_list):
+                                src_path_norm, src_sheet, src_list = source_cells_list[source_index]
+                                j = i - offset
+                                if 0 <= j < len(src_list):
+                                    ref = src_list[j]
+                                    cell = get_cell_value_from_ref(wbs, ref, src_path_norm, src_sheet)
+                                    val = cell.value
+                                    if isinstance(val, str):
+                                        try:
+                                            val = float(val.replace(",", "."))
+                                        except:
+                                            val = 0
+                                    res = val if val is not None else 0
+                                else:
+                                    res = 0
+                            else:
+                                res = 0
                         else:
-                            print(f"Operation {op} not supported by platform")
-                            res = 0
+                            ops_args = [get_val(operand, values, results) for operand in operands]
+                            if op in OPS_MAP:
+                                res = OPS_MAP[op](*ops_args)
+                            else:
+                                print(f"Operation {op} not supported by platform")
+                                res = 0
+    
                         results[step["result"]] = res
 
                     target_ref = targets_cells[i]
                     ws[target_ref].value = results.get("final", 0)
 
         wbs[file_path_norm].save(file_path_norm)
-
-
-# Formulas que faltan
-"""{
-            "formula_steps": [
-                { "op": "gt", "operands": [0, 1], "result": "cond" },
-                { "op": "subtract", "operands": [2, 4], "result": "subtracted" },
-                { "op": "if", "operands": ["cond", "subtracted", 2], "result": "base" },
-                { "op": "multiply", "operands": ["base", 3], "result": "final" }
-            ],
-            "targets": "CO2 equivalent avoided in the {model}",
-            "source_labels": [
-                "./carbon-credits/carbon-credits.xlsx::Carbon Credits::    -----------D10",
-                "./fuel-market-information/fuel-market-information.xlsx::Carbon::Number of years that you could sell those carbon credits",
-                "./carbon-credits/carbon-credits.xlsx::Carbon Credits::{model} vs. BAU",
-                "./fuel-market-information/fuel-market-information.xlsx::Carbon::CO2 certificate (%) - from the total CO2 avoided"
-            ]
-        }"""

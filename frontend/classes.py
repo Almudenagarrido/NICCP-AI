@@ -189,7 +189,7 @@ class FuelMarketInformation:
         else:
             st.error("Error saving the changes, try again later.")
 
-        return error
+        return True
 
     def reset_sheet(self):
         response = requests.post(self.reset_url, json={"model": "", "sheet_name": self.fuel_market, "data": []})
