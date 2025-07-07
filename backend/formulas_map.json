@@ -1,0 +1,44 @@
+{
+  "./carbon-credits/carbon-credits.xlsx": {
+    "Carbon Credits": [
+        {
+            "formula_steps": [
+            { "op": "subtract", "operands": [0, 1], "result": "final" }
+            ],
+            "targets": "./carbon-credits/carbon-credits.xlsx::Carbon Credits::{model} vs. BAU",
+            "source_labels": [
+                "./carbon-credits/carbon-credits.xlsx::Carbon Credits::CO2 emited - BAU scenario", 
+                "./carbon-credits/carbon-credits.xlsx::Carbon Credits::CO2 emited - {model} scenario"
+            ]
+        },
+        {
+            "formula_steps": [
+            { "op": "range", "operands": [], "result": "temp1" },
+            { "op": "gt", "operands": ["temp1", 0], "result": "temp2" },
+            { "op": "offset", "operands": [1, 0], "result": "temp3" },
+            { "op": "if", "operands": ["temp2", "temp3", 1], "result": "temp4" },
+            { "op": "multiply_per", "operands": ["temp4", 2], "result": "temp5" },
+            { "op": "pos_or_cero", "operands": ["temp5"], "result": "final" }
+            ],
+            "targets": "./carbon-credits/carbon-credits.xlsx::Carbon Credits::CO2 equivalent avoided in the {model}",
+            "source_labels": [
+                "./fuel-market-information/fuel-market-information.xlsx::Carbon::Number of years that you could sell those carbon credits", 
+                "./carbon-credits/carbon-credits.xlsx::Carbon Credits::{model} vs. BAU",
+                "./fuel-market-information/fuel-market-information.xlsx::Carbon::CO2 certificate (%) - from the total CO2 avoided"
+            ]
+        },
+        {
+            "formula_steps": [
+                {"op": "multiply_per", "operands": [0, 1], "result": "temp1"},
+                {"op": "multiply", "operands": ["temp1", 2], "result": "final"}
+            ],
+            "targets": "./carbon-credits/carbon-credits.xlsx::Carbon Credits::Potential income from Carbon Credits in the {model} Plan - right",
+            "source_labels": [
+                "./carbon-credits/carbon-credits.xlsx::Carbon Credits::CO2 equivalent avoided in the {model}",
+                "./fuel-market-information/fuel-market-information.xlsx::Carbon::Liquidity",
+                "./fuel-market-information/fuel-market-information.xlsx::Carbon::Price per TON"
+            ]
+        }
+    ]
+  }
+}

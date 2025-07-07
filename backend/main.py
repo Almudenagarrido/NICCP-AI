@@ -25,12 +25,6 @@ TECHNOECONOMIC_INPUTS_MODEL = os.path.join(TECHNOECONOMIC_INPUTS_FOLDER, "techno
 CARBON_CREDITS_FOLDER = "./carbon-credits"
 CARBON_CREDITS_TEMPLATE_PATH = os.path.join(CARBON_CREDITS_FOLDER, "carbon-credits-template.xlsx")
 CARBON_CREDITS_PATH = os.path.join(CARBON_CREDITS_FOLDER, "carbon-credits.xlsx")
-FINANCIAL_STATEMENTS_FOLDER = "./financial-statements"
-FINANCIAL_STATEMENTS_TEMPLATE = os.path.join(FINANCIAL_STATEMENTS_FOLDER, "financial-statements-template.xlsx")
-FINANCIAL_STATEMENTS_MODEL = os.path.join(FINANCIAL_STATEMENTS_FOLDER, "financial-statements-")
-CAPEX_MARKET_FOLDER = "./capex-fuel-markets"
-CAPEX_MARKET_TEMPLATE = os.path.join(CAPEX_MARKET_FOLDER, "capex-market-template.xlsx")
-CAPEX_MARKET_MODEL = os.path.join(CAPEX_MARKET_FOLDER, "capex-market-")
 FOLDERS = [
     TECHNOECONOMIC_MODELS_FOLDER,
     TECHNOECONOMIC_INPUTS_FOLDER,
@@ -805,7 +799,29 @@ def get_carbon_credits():
 
     if not os.path.exists(CARBON_CREDITS_PATH):
         return {"error": "'Carbon credits' file is missing, BAU model was not initialized properly."}
+
+    wb = load_workbook(CARBON_CREDITS_PATH)
+    ws = wb["Carbon Credits"]
+
+    model_names = set()
+    pattern = r"CO2 emited\s*-\s*(.+?)\s*scenario"
+
+    for _, row in enumerate(ws.iter_rows(), start=1):
+        cell = row[0].value if len(row) > 0 else None
+        if isinstance(cell, str):
+            cell_cleaned = re.sub(r"\{.*?\}", "", cell)
+            match = re.search(pattern, cell_cleaned)
+            if match:
+                model = match.group(1).strip()
+                if model:
+                    model_names.add(model)
     
+    models_sorted = sorted(model_names)
+    if "BAU" in models_sorted:
+        models_sorted.remove("BAU")
+
+    e.apply_formulas(CARBON_CREDITS_PATH, FORMULAS_JSON_PATH, models_sorted)
+
     return FileResponse(
         CARBON_CREDITS_PATH,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
