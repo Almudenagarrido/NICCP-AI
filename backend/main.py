@@ -375,7 +375,7 @@ async def create_technoeconomic_model(model: str, start_year: int, end_year: int
         existing_sheets = xls_model.sheet_names
 
         xls_template = pd.ExcelFile(template_path, engine="openpyxl")
-        df_template = pd.read_excel(xls_template, sheet_name="Electricity", engine="openpyxl")
+        df_template = pd.read_excel(xls_template, sheet_name="LPG", engine="openpyxl")
 
         missing_sheets = [s for s in expected_sheets if s not in existing_sheets]
 
