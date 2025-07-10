@@ -184,30 +184,31 @@ def sidebar():
                 st.session_state.page = "Techno-Economic Models"
                 st.session_state.subsection = "Carbon Credits"
                 st.rerun()
-
-            if st.session_state.model != None:
-                with st.expander("Financial Statements", expanded=False):
-                    for sheet in financial_statement_sections:
-                        if st.button(f"{sheet} - FFSS"):
-                            st.session_state.page = "Techno-Economic Models"
-                            st.session_state.subsection = "Financial Statements"
-                            st.session_state.fuel_market = f"{sheet}"
-                            st.rerun()
-
-            if st.session_state.model != None:
-                with st.expander("Capex Fuel Market", expanded=False):
-                    for sheet in capex_market_sections:
-                        if st.button(f"{sheet} - CAPEX"):
-                            st.session_state.page = "Techno-Economic Models"
-                            st.session_state.subsection = "Capex Fuel Market"
-                            st.session_state.fuel_market = f"{sheet}"
-                            st.rerun()
             
             if st.session_state.model != "BAU":
-                if st.button("Summary Financing"):
-                    st.session_state.page = "Techno-Economic Models"
-                    st.session_state.subsection = "Summary Financing"
-                    st.rerun()
+                if st.session_state.model != None:
+                    with st.expander("Financial Statements", expanded=False):
+                        for sheet in financial_statement_sections:
+                            if st.button(f"{sheet} - FFSS"):
+                                st.session_state.page = "Techno-Economic Models"
+                                st.session_state.subsection = "Financial Statements"
+                                st.session_state.fuel_market = f"{sheet}"
+                                st.rerun()
+
+                if st.session_state.model != None:
+                    with st.expander("Capex Fuel Market", expanded=False):
+                        for sheet in capex_market_sections:
+                            if st.button(f"{sheet} - CAPEX"):
+                                st.session_state.page = "Techno-Economic Models"
+                                st.session_state.subsection = "Capex Fuel Market"
+                                st.session_state.fuel_market = f"{sheet}"
+                                st.rerun()
+                
+                if st.session_state.model != "BAU":
+                    if st.button("Summary Financing"):
+                        st.session_state.page = "Techno-Economic Models"
+                        st.session_state.subsection = "Summary Financing"
+                        st.rerun()
 
         if st.session_state.page == "Techno-Economic Models" and st.session_state.subsection == None:
             st.session_state.subsection = "Manage Techno-Economic Models"
