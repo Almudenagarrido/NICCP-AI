@@ -827,7 +827,7 @@ def get_carbon_credits():
     if "BAU" in models_sorted:
         models_sorted.remove("BAU")
 
-    e.apply_formulas(CARBON_CREDITS_PATH, FORMULAS_JSON_PATH, models_sorted)
+    e.apply_formulas(CARBON_CREDITS_PATH, FORMULAS_JSON_PATH, models_sorted, [], [])
 
     return FileResponse(
         CARBON_CREDITS_PATH,
@@ -879,7 +879,7 @@ def reset_carbon_credits(update: SheetUpdate):
 
 # Financial Statements
 @app.get("/financial-statements/{model}")
-async def get_fiancial_statements(model: str):
+async def get_financial_statements(model: str):
     global START_YEAR_TECHNO_MODELS, END_YEAR_TECHNO_MODELS
     if model.lower() in ["none", "bau"]:
         if not os.path.exists(FINANCIAL_STATEMENTS_TEMPLATE):
@@ -971,6 +971,31 @@ async def get_fiancial_statements(model: str):
             ws.delete_cols(col_idx)
 
     wb.save(FULL_FFSS_MODEL_PATH)
+
+    if not os.path.exists(CARBON_CREDITS_PATH):
+        return {"error": "'Carbon credits' file is missing, BAU model was not initialized properly."}
+
+    wb = load_workbook(CARBON_CREDITS_PATH)
+    ws = wb["Carbon Credits"]
+
+    model_names = set()
+    pattern = r"CO2 emited\s*-\s*(.+?)\s*scenario"
+
+    for _, row in enumerate(ws.iter_rows(), start=1):
+        cell = row[0].value if len(row) > 0 else None
+        if isinstance(cell, str):
+            cell_cleaned = re.sub(r"\{.*?\}", "", cell)
+            match = re.search(pattern, cell_cleaned)
+            if match:
+                model = match.group(1).strip()
+                if model:
+                    model_names.add(model)
+    
+    models_sorted = sorted(model_names)
+    if "BAU" in models_sorted:
+        models_sorted.remove("BAU")
+    
+    e.apply_formulas(FULL_FFSS_MODEL_PATH, FORMULAS_JSON_PATH, models_sorted, fuel_market_sheets, expected_sheets)
 
     return FileResponse(
         FULL_FFSS_MODEL_PATH,

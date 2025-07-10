@@ -1,7 +1,7 @@
 import os
-import re
 import json
-from typing import List
+from itertools import product
+from copy import deepcopy
 from openpyxl import load_workbook
 from openpyxl.utils import range_boundaries
 from copy import deepcopy
@@ -50,12 +50,24 @@ CELLS_MAPPING_MODEL_TO_CARBON = [
 ]
 
 OPS_MAP = {
+    "addition": lambda x, y: x + y,
     "subtract": lambda x, y: x - y,
+    "subtract_one": lambda x: x - 1,
     "multiply": lambda x, y: x * y,
     "multiply_per": lambda x, y: (x * y)/100,
+    "divide": lambda x, y: x / y,
+    "safe_divide": lambda x, y: x / y if y != 0 else 0,
+    "safe_divide_subtract_one": lambda x, y: x / y - 1 if y != 0 else 0,
     "gt": lambda x, y: x > y,
+    "lt": lambda x, y: x < y,
     "pos_or_cero": lambda x: max(x, 0),
+    "equal": lambda x, y: x == y,
     "if": lambda condition, true_val, false_val: true_val if condition else false_val,
+    "copy": lambda x: x,
+    "negative": lambda x: -x,
+    "percentage": lambda x: x*100,
+    "min": lambda x, y: min(x, y),
+    "abs": lambda x: abs(x),
 }
 
 
@@ -105,93 +117,185 @@ def fill_contents_from_source(source_path: str, destiny_path: str, model_name:st
     except Exception as e:
         raise RuntimeError(f"Error actualizando plantilla con datos del modelo: {str(e)}")
 
-def expand_formulas_by_models(formulas_json: dict, models: list) -> dict:
+def expand_formulas_by_models(formulas_json: dict, models: list, fuel_markets: list, ffss_sections: list) -> dict:
     expanded_json = {}
 
-    for file_path, sheets in formulas_json.items():
-        expanded_json[file_path] = {}
+    for raw_file_path, sheets in formulas_json.items():
+        file_paths = []
 
-        for sheet_name, formulas in sheets.items():
-            expanded_formulas = []
-            
+        if "{model}" in raw_file_path:
+            file_paths = [raw_file_path.replace("{model}", m) for m in models]
+        elif "{fuel_market}" in raw_file_path:
+            file_paths = [raw_file_path.replace("{fuel_market}", f) for f in fuel_markets]
+        elif "{ffss_section}" in raw_file_path:
+            file_paths = [raw_file_path.replace("{ffss_section}", s) for s in ffss_sections]
+        else:
+            file_paths = [raw_file_path]
+
+        for raw_sheet_name, formulas in sheets.items():
             for formula in formulas:
-                if "{model}" not in formula.get("targets", "") and all("{model}" not in sl for sl in formula.get("source_labels", [])):
-                    expanded_formulas.append(formula)
-                    continue
+                targets = formula.get("targets", "")
+                source_labels = formula.get("source_labels", [])
 
-                for model in models:
-                    new_formula = deepcopy(formula)
-                    new_formula["targets"] = new_formula["targets"].replace("{model}", model)
-                    new_source_labels = [
-                        sl.replace("{model}", model) for sl in new_formula["source_labels"]
-                    ]
-                    new_formula["source_labels"] = new_source_labels
+                contains_model = "{model}" in targets or any("{model}" in sl for sl in source_labels)
+                contains_fuel = "{fuel_market}" in targets or any("{fuel_market}" in sl for sl in source_labels)
+                contains_ffss = "{ffss_section}" in targets or any("{ffss_section}" in sl for sl in source_labels)
 
-                    expanded_formulas.append(new_formula)
+                for model, fuel, ffss in product(
+                    models if contains_model else [None],
+                    fuel_markets if contains_fuel else [None],
+                    ffss_sections if contains_ffss else [None]
+                ):
+                    for file_path in file_paths:
+                        new_formula = deepcopy(formula)
 
-            expanded_json[file_path][sheet_name] = expanded_formulas
+                        if contains_model and model is not None:
+                            new_formula["targets"] = new_formula["targets"].replace("{model}", model)
+                        if contains_fuel and fuel is not None:
+                            new_formula["targets"] = new_formula["targets"].replace("{fuel_market}", fuel)
+                        if contains_ffss and ffss is not None:
+                            new_formula["targets"] = new_formula["targets"].replace("{ffss_section}", ffss)
+
+                        new_labels = []
+                        for sl in new_formula["source_labels"]:
+                            if contains_model and model is not None:
+                                sl = sl.replace("{model}", model)
+                            if contains_fuel and fuel is not None:
+                                sl = sl.replace("{fuel_market}", fuel)
+                            if contains_ffss and ffss is not None:
+                                sl = sl.replace("{ffss_section}", ffss)
+                            new_labels.append(sl)
+
+                        new_formula["source_labels"] = new_labels
+
+                        try:
+                            path_part, sheet_part, _ = new_formula["targets"].split("::")
+                        except ValueError:
+                            raise ValueError(f"Formato incorrecto en target: {new_formula['targets']}")
+
+                        if path_part not in expanded_json:
+                            expanded_json[path_part] = {}
+                        if sheet_part not in expanded_json[path_part]:
+                            expanded_json[path_part][sheet_part] = []
+
+                        expanded_json[path_part][sheet_part].append(new_formula)
 
     return expanded_json
 
 def parse_label_reference(default_file: str, default_sheet: str, label: str):
     parts = label.split("::")
+
     if len(parts) == 3:
-        file_path, sheet, label = parts
+        file_path, sheet, label_info = parts
     elif len(parts) == 2:
         file_path = default_file
-        sheet, label = parts
+        sheet, label_info = parts
     else:
         file_path = default_file
         sheet = default_sheet
-    return os.path.normpath(file_path), sheet, label
+        label_info = parts[0]
 
-def get_numeric_cell_refs_label(wbs: dict, default_file: str, default_sheet: str, full_label: str, label_col: int = 1):
-    file_path, sheet_name, row_label = parse_label_reference(default_file, default_sheet, full_label)
+    if ":" in label_info:
+        label_columns = label_info.split(":")
+    else:
+        label_columns = [label_info]
+
+    return os.path.normpath(file_path), sheet, label_columns
+
+def get_numeric_cell_refs_label(
+    wbs: dict,
+    default_file: str,
+    default_sheet: str,
+    full_label: str,
+    first_label_col: int = 1
+):
+    file_path, sheet_name, label_columns = parse_label_reference(default_file, default_sheet, full_label)
 
     if file_path not in wbs:
         wbs[file_path] = load_workbook(file_path, data_only=True)
     ws = wbs[file_path][sheet_name]
-    
-    target_row = None
-    for row in range(1, ws.max_row + 1):
-        cell_value = ws.cell(row=row, column=label_col).value
-        if cell_value and row_label in str(cell_value):
-            target_row = row
-            break
+
+    def find_best_matching_row():
+        first_expected_str = label_columns[0].strip()
+        candidate_rows = []
+
+        for row in range(1, ws.max_row + 1):
+            first_cell_value = ws.cell(row=row, column=first_label_col).value
+            first_cell_str = str(first_cell_value).strip() if first_cell_value is not None else ""
+            if first_cell_str == first_expected_str:
+                candidate_rows.append(row)
+
+        for row in candidate_rows:
+            match = True
+            for offset, expected_value in enumerate(label_columns[1:], start=1):
+                col_index = first_label_col + offset
+                cell_value = ws.cell(row=row, column=col_index).value
+                cell_str = str(cell_value).strip() if cell_value is not None else ""
+                expected_str = expected_value.strip()
+
+                if cell_str != expected_str and expected_str not in cell_str:
+                    match = False
+                    break
+            if match:
+                return row
+
+        for row in range(1, ws.max_row + 1):
+            first_cell_value = ws.cell(row=row, column=first_label_col).value
+            first_cell_str = str(first_cell_value).strip() if first_cell_value is not None else ""
+            if first_expected_str not in first_cell_str:
+                continue
+
+            match = True
+            for offset, expected_value in enumerate(label_columns[1:], start=1):
+                col_index = first_label_col + offset
+                cell_value = ws.cell(row=row, column=col_index).value
+                cell_str = str(cell_value).strip() if cell_value is not None else ""
+                expected_str = expected_value.strip()
+                if expected_str not in cell_str:
+                    match = False
+                    break
+            if match:
+                return row
+
+        return None
+
+
+    target_row = find_best_matching_row()
 
     if target_row is None:
-        raise ValueError(f"Label '{row_label}'not found in column {label_col}")
+        raise ValueError(f"Label '{':'.join(label_columns)}' not found in sheet '{sheet_name}' starting at column {first_label_col}")
 
     refs = []
-    for col in range(3, ws.max_column + 1):
+    for col in range(first_label_col + len(label_columns), ws.max_column + 1):
         val = ws.cell(row=target_row, column=col).value
         if isinstance(val, (int, float)):
             refs.append(ws.cell(row=target_row, column=col).coordinate)
-        else:
-            if isinstance(val, str):
-                try:
-                    float(val.replace(",", "."))
-                    refs.append(ws.cell(row=target_row, column=col).coordinate)
-                except:
-                    pass
+        elif isinstance(val, str):
+            try:
+                float(val.replace(",", "."))
+                refs.append(ws.cell(row=target_row, column=col).coordinate)
+            except ValueError:
+                pass
+
     return refs
 
 def get_val(operand, values, results):
-    if isinstance(operand, int):
-        return values[operand]
-    elif isinstance(operand, str):
-        if operand == "temp":
-            temp_keys = [k for k in results.keys() if "temp" in k]
-            if temp_keys:
-                last_temp_key = temp_keys[-1]
-                return results[last_temp_key]
+    if isinstance(operand, list):
+        if operand[0] == "index":
+            key = operand[1]
+            if isinstance(key, int):
+                return values[key] if key < len(values) else 0
             else:
-                return 0
-        else:
-            return results.get(operand, 0)
+                return results.get(key, 0)
+        elif operand[0] == "literal":
+            return operand[1]
+    elif isinstance(operand, str):
+        return results.get(operand, 0)
+    elif isinstance(operand, (int, float)):
+        return operand
     else:
         return 0
-    
+  
 def get_cell_value_from_ref(wbs, ref, default_file, default_sheet):
         ref_parts = ref.split("::")
         if len(ref_parts) == 2:
@@ -207,29 +311,29 @@ def get_cell_value_from_ref(wbs, ref, default_file, default_sheet):
 
         return wbs[file_path][sheet_name][cell_coord]
 
-def apply_formulas(file_path, formulas_json_path, models):
+def apply_formulas(file_path, formulas_json_path, models, fuel_markets, ffss_sections):
 
     with open(formulas_json_path) as f:
         formulas_json = json.load(f)
-        formulas_json = expand_formulas_by_models(formulas_json, models)
+        formulas_json = expand_formulas_by_models(formulas_json, models, fuel_markets, ffss_sections)
 
         file_path_norm = os.path.normpath(file_path)
         json_keys_path = [os.path.normpath(k) for k in formulas_json.keys()]
 
         if file_path_norm not in json_keys_path:
             return
-
+        
         json_index = json_keys_path.index(file_path_norm)
         formulas_for_file = list(formulas_json.values())[json_index]
 
         wbs = {}
         wbs[file_path_norm] = load_workbook(file_path_norm)
-
+        
         for sheet_name, formulas in formulas_for_file.items():
             if sheet_name not in wbs[file_path_norm].sheetnames:
                 continue
             ws = wbs[file_path_norm][sheet_name]
-
+            
             for formula in formulas:
                 targets_label = formula["targets"]
                 source_labels = formula["source_labels"]
@@ -256,7 +360,7 @@ def apply_formulas(file_path, formulas_json_path, models):
                     length = len(targets_cells)
                     if any(len(refs) != length and len(refs) != 1 for (_, _, refs) in source_cells_list):
                         continue
-
+                
                 for i in range(length):
                     values = []
                     for src_path_norm, src_sheet, src_list in source_cells_list:
@@ -277,9 +381,9 @@ def apply_formulas(file_path, formulas_json_path, models):
                         if op == "range":
                             res = i + 1
                         elif op == "offset":
-                            source_index = operands[0]
+                            source_index = operands[0][1]
                             offset = get_val(operands[1], values, results)
-
+                
                             if 0 <= source_index < len(source_cells_list):
                                 src_path_norm, src_sheet, src_list = source_cells_list[source_index]
                                 j = i - offset
@@ -304,10 +408,49 @@ def apply_formulas(file_path, formulas_json_path, models):
                             else:
                                 print(f"Operation {op} not supported by platform")
                                 res = 0
-    
+                                
                         results[step["result"]] = res
 
                     target_ref = targets_cells[i]
                     ws[target_ref].value = results.get("final", 0)
 
         wbs[file_path_norm].save(file_path_norm)
+
+
+"""
+----- PROBLEMILLAS -----
+Gestionar la division (entradas) entre upstream + local
+Relación entre inputs de OFF GRID y GRID
+Long term subsudies (entradas)
+Entradas en Financial LPG inputs OPEX, pasan a tariff (EBITDA margin desaparece)
+
+Long term subsidies (viene de hojas ocultas CS - Minigrids etc) (gestionarlo como entradas)
+Upstream Cost of Energy (es cero) (gestionarlo como entradas)
+Short Term financial liabilities (es cero)
+
+----- COSAS VACIAS -----
+Intangibles + Other fixed assets
+Other financial assets
+Other current tax assets
+Share Premium
+Deferred tax liabilities
+Other short term liabilities
+Other tax liabilities
+Provisions
+"""
+
+"""
+D&A (depende de las hojas de CAPEX)"""
+
+""",
+    "E-Cooking": [
+        {
+            "formula_steps": [
+            { "op": "copy", "operands": [["index", 0]], "result": "final" }
+            ],
+            "targets": "./financial-statements/financial-statements-{model}.xlsx::E-Cooking::Tariff Income - Energy & SHS",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::Electricity::Revenues Heat"
+            ]
+        }
+    ]"""
