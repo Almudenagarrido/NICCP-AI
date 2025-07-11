@@ -1091,6 +1091,28 @@ async def get_capex_market(model: str):
 
     wb.save(FULL_CAPEX_MODEL_PATH)
 
+    wb = load_workbook(CARBON_CREDITS_PATH)
+    ws = wb["Carbon Credits"]
+
+    model_names = set()
+    pattern = r"CO2 emited\s*-\s*(.+?)\s*scenario"
+
+    for _, row in enumerate(ws.iter_rows(), start=1):
+        cell = row[0].value if len(row) > 0 else None
+        if isinstance(cell, str):
+            cell_cleaned = re.sub(r"\{.*?\}", "", cell)
+            match = re.search(pattern, cell_cleaned)
+            if match:
+                model = match.group(1).strip()
+                if model:
+                    model_names.add(model)
+    
+    models_sorted = sorted(model_names)
+    if "BAU" in models_sorted:
+        models_sorted.remove("BAU")
+
+    e.apply_formulas(FULL_CAPEX_MODEL_PATH, FORMULAS_JSON_PATH, models_sorted, expected_sheets, [])
+
     return FileResponse(
         FULL_CAPEX_MODEL_PATH,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
