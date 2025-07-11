@@ -401,6 +401,27 @@ def apply_formulas(file_path, formulas_json_path, models, fuel_markets, ffss_sec
                                     res = 0
                             else:
                                 res = 0
+                        elif op == "sum_range":
+                            source_index = int(get_val(operands[0][1], values, results))
+                            width = int(get_val(operands[1], values, results))
+                            
+                            if 0 <= source_index < len(source_cells_list):
+                                src_path_norm, src_sheet, src_list = source_cells_list[source_index]
+                                sum_vals = 0
+                                for j in range(i - width + 1, i + 1):
+                                    if 0 <= j < len(src_list):
+                                        ref = src_list[j]
+                                        cell = get_cell_value_from_ref(wbs, ref, src_path_norm, src_sheet)
+                                        val = cell.value
+                                        if isinstance(val, str):
+                                            try:
+                                                val = float(val.replace(",", "."))
+                                            except:
+                                                val = 0
+                                        sum_vals += val if val is not None else 0
+                                res = sum_vals
+                            else:
+                                res = 0
                         else:
                             ops_args = [get_val(operand, values, results) for operand in operands]
                             if op in OPS_MAP:
@@ -441,6 +462,7 @@ Provisions
 
 """
 D&A (depende de las hojas de CAPEX)"""
+
 
 """,
     "E-Cooking": [

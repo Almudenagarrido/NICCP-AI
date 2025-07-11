@@ -1175,10 +1175,10 @@ class CapexFuelMarket:
         }
         self.section_starts = {
             "Grid": 0, 
-            "Off-Grid": 7, 
+            "Off-Grid": 9, 
             "Local Processing": 0, 
-            "Local Transport": 7, 
-            "Upstream": 14
+            "Local Transport": 9, 
+            "Upstream": 18
         }
     
     def get_capex_markets(self):
@@ -1279,7 +1279,7 @@ class CapexFuelMarket:
                     update_mode=GridUpdateMode.VALUE_CHANGED,
                     allow_unsafe_jscode=True,
                     enable_enterprise_modules=False,
-                    height=230,
+                    height=290,
                     reload_data=False
             )
                 

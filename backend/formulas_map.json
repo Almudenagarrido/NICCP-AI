@@ -29,8 +29,8 @@
         },
         {
             "formula_steps": [
-                {"op": "multiply_per", "operands": [["index", 0], ["index", 1]], "result": "temp1"},
-                {"op": "multiply", "operands": [["index", "temp1"], ["index", 2]], "result": "final"}
+            {"op": "multiply_per", "operands": [["index", 0], ["index", 1]], "result": "temp1"},
+            {"op": "multiply", "operands": [["index", "temp1"], ["index", 2]], "result": "final"}
             ],
             "targets": "./carbon-credits/carbon-credits.xlsx::Carbon Credits::Potential income from Carbon Credits in the {model} Plan - right",
             "source_labels": [
@@ -794,6 +794,387 @@
             "source_labels": [
                 "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Cash BoP",
                 "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::- Cash movement"
+            ]
+        }
+    ]
+  },
+    "./capex-fuel-markets/capex-market-{model}.xlsx": {
+    "Electricity": [
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Growth Capex",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::Electricity::CAPEX - GRID:Investments of generation",
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::Electricity::CAPEX - GRID:Investments of the grid"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "offset", "operands": [["index", 0], ["literal", 1]], "result": "temp1"},
+            {"op": "addition", "operands": [["index", "temp1"], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Acc. Growth CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Acc. Growth CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Growth Capex"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "offset", "operands": [["index", 0], ["literal", 1]], "result": "temp1"},
+            {"op": "addition", "operands": [["index", "temp1"], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:ACC. Growth CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:ACC. Growth CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Maintenance CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Total CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Growth CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Maintenance CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Acc. Total CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Acc. Growth CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:ACC. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "copy", "operands": [["index", 0]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Total Depreciation",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::Electricity::GRID:Depreciation & Amortization (D&A) schedule of the assets"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "range", "operands": [], "result": "temp1"},
+            {"op": "min", "operands": [["index", "temp1"], ["index", 1]], "result": "temp2"},
+            {"op": "offset", "operands": [["index", 0], ["index", "temp2"]], "result": "temp3"},
+            {"op": "sum_range", "operands": [["index", "temp3"], ["index", "temp2"]], "result": "temp4"},
+            {"op": "safe_divide", "operands": [["index", "temp4"], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Total Annual Depreciation",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Total CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::G:Total Depreciation"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Growth Capex",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::Electricity::CAPEX - OFF GRID:Investments of generation",
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::Electricity::CAPEX - OFF GRID:Investments of the grid"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "offset", "operands": [["index", 0], ["literal", 1]], "result": "temp1"},
+            {"op": "addition", "operands": [["index", "temp1"], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Acc. Growth CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Acc. Growth CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Growth Capex"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "offset", "operands": [["index", 0], ["literal", 1]], "result": "temp1"},
+            {"op": "addition", "operands": [["index", "temp1"], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:ACC. Growth CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:ACC. Growth CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Maintenance CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Total CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Growth Capex",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Maintenance CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Acc. Total CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Acc. Growth CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:ACC. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "copy", "operands": [["index", 0]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Total Depreciation",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::Electricity::OFF GRID:Depreciation & Amortization (D&A) schedule of the assets"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "range", "operands": [], "result": "temp1"},
+            {"op": "min", "operands": [["index", "temp1"], ["index", 1]], "result": "temp2"},
+            {"op": "offset", "operands": [["index", 0], ["index", "temp2"]], "result": "temp3"},
+            {"op": "sum_range", "operands": [["index", "temp3"], ["index", "temp2"]], "result": "temp4"},
+            {"op": "safe_divide", "operands": [["index", "temp4"], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Total Annual Depreciation",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Total CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::Electricity::O-G:Total Depreciation"
+            ]
+        }
+    ],
+    "LPG": [
+        {
+            "formula_steps": [
+            {"op": "copy", "operands": [["index", 0]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Growth Capex",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::LPG::CAPEX - LOCAL:Investments of the processing"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "offset", "operands": [["index", 1], ["literal", 1]], "result": "temp1"},
+            {"op": "addition", "operands": [["index", 0], ["index", "temp1"]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Acc. Growth CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Growth Capex",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Acc. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "offset", "operands": [["index", 1], ["literal", 1]], "result": "temp1"},
+            {"op": "addition", "operands": [["index", 0], ["index", "temp1"]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:ACC. Growth CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Maintenance CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:ACC. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Total CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Growth Capex",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Maintenance CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Acc. Total CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Acc. Growth CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:ACC. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "copy", "operands": [["index", 0]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Total Depreciation",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::LPG::LOCAL:Depreciation & Amortization (D&A) schedule of the assets for processing"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "range", "operands": [], "result": "temp1"},
+            {"op": "min", "operands": [["index", "temp1"], ["index", 1]], "result": "temp2"},
+            {"op": "offset", "operands": [["index", 0], ["index", "temp2"]], "result": "temp3"},
+            {"op": "sum_range", "operands": [["index", "temp3"], ["index", "temp2"]], "result": "temp4"},
+            {"op": "safe_divide", "operands": [["index", "temp4"], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Total Annual Depreciation",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Total CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LP:Total Depreciation"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "copy", "operands": [["index", 0]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Growth Capex",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::LPG::CAPEX - LOCAL:Investments of the transport segment"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "offset", "operands": [["index", 1], ["literal", 1]], "result": "temp1"},
+            {"op": "addition", "operands": [["index", 0], ["index", "temp1"]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Acc. Growth CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Growth Capex",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Acc. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "offset", "operands": [["index", 1], ["literal", 1]], "result": "temp1"},
+            {"op": "addition", "operands": [["index", 0], ["index", "temp1"]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:ACC. Growth CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Maintenance CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:ACC. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Total CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Growth Capex",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Maintenance CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Acc. Total CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Acc. Growth CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:ACC. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "copy", "operands": [["index", 0]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Total Depreciation",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::LPG::LOCAL:Depreciation & Amortization (D&A) schedule of the assets for transport"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "range", "operands": [], "result": "temp1"},
+            {"op": "min", "operands": [["index", "temp1"], ["index", 1]], "result": "temp2"},
+            {"op": "offset", "operands": [["index", 0], ["index", "temp2"]], "result": "temp3"},
+            {"op": "sum_range", "operands": [["index", "temp3"], ["index", "temp2"]], "result": "temp4"},
+            {"op": "safe_divide", "operands": [["index", "temp4"], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Total Annual Depreciation",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Total CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Total Depreciation"
+            ]
+        },
+
+
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Growth Capex",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::LPG::CAPEX - UPSTREAM:Investments of the processing",
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::LPG::CAPEX - UPSTREAM:Investments of the transport segment"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "offset", "operands": [["index", 1], ["literal", 1]], "result": "temp1"},
+            {"op": "addition", "operands": [["index", 0], ["index", "temp1"]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Acc. Growth CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Growth Capex",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Acc. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "offset", "operands": [["index", 1], ["literal", 1]], "result": "temp1"},
+            {"op": "addition", "operands": [["index", 0], ["index", "temp1"]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:ACC. Growth CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Maintenance CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:ACC. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Total CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Growth Capex",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Maintenance CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Acc. Total CAPEX",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Acc. Growth CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:ACC. Growth CAPEX"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "copy", "operands": [["index", 0]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Total Depreciation",
+            "source_labels": [
+                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::LPG::UPSTREAM:Depreciation & Amortization (D&A) schedule of the assets"
+            ]
+        },
+        {
+            "formula_steps": [
+            {"op": "range", "operands": [], "result": "temp1"},
+            {"op": "min", "operands": [["index", "temp1"], ["index", 1]], "result": "temp2"},
+            {"op": "offset", "operands": [["index", 0], ["index", "temp2"]], "result": "temp3"},
+            {"op": "sum_range", "operands": [["index", "temp3"], ["index", "temp2"]], "result": "temp4"},
+            {"op": "safe_divide", "operands": [["index", "temp4"], ["index", 1]], "result": "final"}
+            ],
+            "targets": "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Total Annual Depreciation",
+            "source_labels": [
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Total CAPEX",
+                "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::U:Total Depreciation"
             ]
         }
     ]
