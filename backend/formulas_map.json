@@ -798,7 +798,7 @@
         }
     ]
   },
-    "./capex-fuel-markets/capex-market-{model}.xlsx": {
+  "./capex-fuel-markets/capex-market-{model}.xlsx": {
     "Electricity": [
         {
             "formula_steps": [
@@ -1100,8 +1100,6 @@
                 "./capex-fuel-markets/capex-market-{model}.xlsx::LPG::LT:Total Depreciation"
             ]
         },
-
-
         {
             "formula_steps": [
             {"op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final"}

@@ -449,6 +449,8 @@ Long term subsidies (viene de hojas ocultas CS - Minigrids etc) (gestionarlo com
 Upstream Cost of Energy (es cero) (gestionarlo como entradas)
 Short Term financial liabilities (es cero)
 
+Distintos valores
+
 ----- COSAS VACIAS -----
 Intangibles + Other fixed assets
 Other financial assets
