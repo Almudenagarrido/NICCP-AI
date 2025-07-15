@@ -266,7 +266,7 @@ def list_techno_models():
     if "BAU" in models_sorted:
         models_sorted.remove("BAU")
         models_sorted.insert(0, "BAU")
-
+        
     return {"models": models_sorted}
 
 def detect_year_range(path):

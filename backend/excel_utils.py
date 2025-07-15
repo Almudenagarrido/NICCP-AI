@@ -49,6 +49,7 @@ CELLS_MAPPING_MODEL_TO_CARBON = [
     ("Res-Cash", "G10:R10", "Carbon Credits", "C2:N2"),
 ]
 
+
 OPS_MAP = {
     "addition": lambda x, y: x + y,
     "subtract": lambda x, y: x - y,
@@ -59,6 +60,7 @@ OPS_MAP = {
     "safe_divide": lambda x, y: x / y if y != 0 else 0,
     "safe_divide_subtract_one": lambda x, y: x / y - 1 if y != 0 else 0,
     "gt": lambda x, y: x > y,
+    "gt_eq": lambda x, y: x > y,
     "lt": lambda x, y: x < y,
     "pos_or_cero": lambda x: max(x, 0),
     "equal": lambda x, y: x == y,
@@ -67,6 +69,7 @@ OPS_MAP = {
     "negative": lambda x: -x,
     "percentage": lambda x: x*100,
     "min": lambda x, y: min(x, y),
+    "max": lambda x, y: max(x, y),
     "abs": lambda x: abs(x),
 }
 
@@ -404,11 +407,30 @@ def apply_formulas(file_path, formulas_json_path, models, fuel_markets, ffss_sec
                         elif op == "sum_range":
                             source_index = int(get_val(operands[0][1], values, results))
                             width = int(get_val(operands[1], values, results))
+                            direction = step.get("direction", "backward")
+                            fixed_start = step.get("start_index")
                             
                             if 0 <= source_index < len(source_cells_list):
                                 src_path_norm, src_sheet, src_list = source_cells_list[source_index]
                                 sum_vals = 0
-                                for j in range(i - width + 1, i + 1):
+                                if width == 0:
+                                    width = len(src_list)
+                                if fixed_start is not None:
+                                    start = int(fixed_start)
+                                    if direction == "forward":
+                                        end = start + width
+                                    else:
+                                        start = start - width + 1
+                                        end = start + width
+                                else:
+                                    if direction == "backward":
+                                        start = i - width + 1
+                                        end = i + 1
+                                    elif direction == "forward":
+                                        start = i
+                                        end = i + width
+
+                                for j in range(start, end):
                                     if 0 <= j < len(src_list):
                                         ref = src_list[j]
                                         cell = get_cell_value_from_ref(wbs, ref, src_path_norm, src_sheet)
@@ -420,6 +442,67 @@ def apply_formulas(file_path, formulas_json_path, models, fuel_markets, ffss_sec
                                                 val = 0
                                         sum_vals += val if val is not None else 0
                                 res = sum_vals
+                            else:
+                                res = 0
+                        elif op == "first_nz_idx":
+                            source_index = int(get_val(operands[0][1], values, results))
+
+                            if 0 <= source_index < len(source_cells_list):
+                                src_path_norm, src_sheet, src_list = source_cells_list[source_index]
+
+                                row_vals = []
+                                for ref in src_list:
+                                    cell = get_cell_value_from_ref(wbs, ref, src_path_norm, src_sheet)
+                                    val = cell.value
+                                    if isinstance(val, str):
+                                        try:
+                                            val = float(val.replace(",", "."))
+                                        except:
+                                            val = 0
+                                    row_vals.append(val if val is not None else 0)
+
+                                res = next((idx for idx, v in enumerate(row_vals) if v != 0), 0)
+                            else:
+                                res = 0
+                        elif op == "avg_range":
+                            source_index = int(get_val(operands[0][1], values, results))
+                            width = int(get_val(operands[1], values, results))
+                            direction = step.get("direction", "backward")
+                            fixed_start = step.get("start_index")
+
+                            if 0 <= source_index < len(source_cells_list):
+                                src_path_norm, src_sheet, src_list = source_cells_list[source_index]
+                                values_list = []
+                                if width == 0:
+                                    width = len(src_list)
+                                if fixed_start is not None:
+                                    start = int(fixed_start)
+                                    if direction == "forward":
+                                        end = start + width
+                                    else:
+                                        start = start - width + 1
+                                        end = start + width
+                                else:
+                                    if direction == "backward":
+                                        start = i - width + 1
+                                        end = i + 1
+                                    elif direction == "forward":
+                                        start = i
+                                        end = i + width
+
+                                for j in range(start, end):
+                                    if 0 <= j < len(src_list):
+                                        ref = src_list[j]
+                                        cell = get_cell_value_from_ref(wbs, ref, src_path_norm, src_sheet)
+                                        val = cell.value
+                                        if isinstance(val, str):
+                                            try:
+                                                val = float(val.replace(",", "."))
+                                            except:
+                                                val = 0
+                                        values_list.append(val if val is not None else 0)
+
+                                res = sum(values_list) / len(values_list) if values_list else 0
                             else:
                                 res = 0
                         else:
@@ -440,41 +523,32 @@ def apply_formulas(file_path, formulas_json_path, models, fuel_markets, ffss_sec
 
 """
 ----- PROBLEMILLAS -----
-Gestionar la division (entradas) entre upstream + local
-Relación entre inputs de OFF GRID y GRID
-Long term subsudies (entradas)
-Entradas en Financial LPG inputs OPEX, pasan a tariff (EBITDA margin desaparece)
+Comprobar flujo de las entradas upstream, local, grid, off-grid.
+Calculo de Long term subisdies a partir de entradas existentes.
+Paises precargados, permitir varios modelos para cada pais.
+Reestructuracion de backend (optimizacion de endpoints y clases).
+Gestion de plantilla y formato para guardar datos (json, excel, etc).
 
-Long term subsidies (viene de hojas ocultas CS - Minigrids etc) (gestionarlo como entradas)
-Upstream Cost of Energy (es cero) (gestionarlo como entradas)
-Short Term financial liabilities (es cero)
+- En las entradas en Financial LPG inputs (Execution) las entradas del margen del EBITDA desaparecen y las de OPEX luego en Techno-economic Inputs pasan a llamarse tariff.
 
-Distintos valores
+- En Capital Structure (FFSS) Grants es el sumatorio de Capex, Investing cash flow, cash flow from assets, etc. Pero luego no se usa en ningun sitio o yo no he encontrado dependencias.
 
------ COSAS VACIAS -----
-Intangibles + Other fixed assets
-Other financial assets
-Other current tax assets
-Share Premium
-Deferred tax liabilities
-Other short term liabilities
-Other tax liabilities
-Provisions
+- Tambien en Capital Structure, Grants (% with grants) apunta a las celdas D107-O107 en la hoja oculta de Inputs y son todo celdas vacias.
+
+- + Increase en GRANTS en CS, se divide en dos y solo tiene valores para Baseline y 2024. No se si podrias explicarmelo. Es importante porque afecta a otros calculos.
+
+-  Luego para Realisation (% capex) solamente suma desde 2023 hasta 2030. Entiendo que es por lo de los SGD pero igual el rango de años es algo que tendria que considerarse como entrada, porque sino sumaria todos los años. Lo mismo para Realisation, solo suma los Capital Expenditures hasta 2030.
+
+- En general tengo la impresion de que los valores de tu excel de NICCP y los de los exceles de Aligned y CleanStep son distintos. Te enseño casos especificos el miercoles. Pero no entiendo como puede ser.
+
+---------------------------------------------
+Esto son cosas vacias, solo para entender si es aposta, si es algo que hay que hacer que sea una entrada, si se calculan a partir de entradas existentes, etc.
+---------------------------------------------
+- Balance Sheet: Intangibles, Other fixed assets, Other financial assets, Other current tax assets, Share Premium, Deferred tax liabilities, Other short term liabilities, Other tax liabilities, Short Term financial liabilities (depende de D163-O163 que son celdas vacias), Provisions
+
+- PP&E - Capex: Divestiture
+
+- Working Capital: Inventories - Days of COGS 
+
+- En la hoja de CAPEX para Electricity (o LPG) Maintenance CAPEX y Acc. Growth CAPEX.
 """
-
-"""
-D&A (depende de las hojas de CAPEX)"""
-
-
-""",
-    "E-Cooking": [
-        {
-            "formula_steps": [
-            { "op": "copy", "operands": [["index", 0]], "result": "final" }
-            ],
-            "targets": "./financial-statements/financial-statements-{model}.xlsx::E-Cooking::Tariff Income - Energy & SHS",
-            "source_labels": [
-                "./technoeconomic-inputs/technoeconomic-inputs-{model}.xlsx::Electricity::Revenues Heat"
-            ]
-        }
-    ]"""
