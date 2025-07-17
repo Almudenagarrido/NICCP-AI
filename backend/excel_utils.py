@@ -528,21 +528,13 @@ Calculo de Long term subisdies a partir de entradas existentes.
 Paises precargados, permitir varios modelos para cada pais.
 Reestructuracion de backend (optimizacion de endpoints y clases).
 Gestion de plantilla y formato para guardar datos (json, excel, etc).
+EBITDA margin y OPEX subsidies en LPG Financial Inputs (Execution).
 
-- En las entradas en Financial LPG inputs (Execution) las entradas del margen del EBITDA desaparecen y las de OPEX luego en Techno-economic Inputs pasan a llamarse tariff.
-
-- En Capital Structure (FFSS) Grants es el sumatorio de Capex, Investing cash flow, cash flow from assets, etc. Pero luego no se usa en ningun sitio o yo no he encontrado dependencias.
-
-- Tambien en Capital Structure, Grants (% with grants) apunta a las celdas D107-O107 en la hoja oculta de Inputs y son todo celdas vacias.
-
-- + Increase en GRANTS en CS, se divide en dos y solo tiene valores para Baseline y 2024. No se si podrias explicarmelo. Es importante porque afecta a otros calculos.
-
--  Luego para Realisation (% capex) solamente suma desde 2023 hasta 2030. Entiendo que es por lo de los SGD pero igual el rango de años es algo que tendria que considerarse como entrada, porque sino sumaria todos los años. Lo mismo para Realisation, solo suma los Capital Expenditures hasta 2030.
-
-- En general tengo la impresion de que los valores de tu excel de NICCP y los de los exceles de Aligned y CleanStep son distintos. Te enseño casos especificos el miercoles. Pero no entiendo como puede ser.
+Relacionado con los SGD 2030, definir rango de años como entrada. Afecta a:
+- + Increase en GRANTS en CS (valores para Baseline y 2024, se conceden en dos años); Realisation (% capex) (suma desde 2023 hasta 2030)
 
 ---------------------------------------------
-Esto son cosas vacias, solo para entender si es aposta, si es algo que hay que hacer que sea una entrada, si se calculan a partir de entradas existentes, etc.
+VALORES VACIOS
 ---------------------------------------------
 - Balance Sheet: Intangibles, Other fixed assets, Other financial assets, Other current tax assets, Share Premium, Deferred tax liabilities, Other short term liabilities, Other tax liabilities, Short Term financial liabilities (depende de D163-O163 que son celdas vacias), Provisions
 

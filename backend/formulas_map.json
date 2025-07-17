@@ -431,14 +431,11 @@
         },
         {
             "formula_steps": [
-            { "op": "addition", "operands": [["index", 0], ["index", 1]], "result": "temp1" },
-            { "op": "addition", "operands": [["index", "temp1"], ["index", 2]], "result": "final" }
+            { "op": "copy", "operands": [["index", 0]], "result": "final" }
             ],
             "targets": "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Non-current assets",
             "source_labels": [
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::PP&E",
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Intangibles",
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Other fixed assets"
+                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::PP&E"
             ]
         },
         {
@@ -453,17 +450,13 @@
         {
             "formula_steps": [
             { "op": "addition", "operands": [["index", 0], ["index", 1]], "result": "temp1" },
-            { "op": "addition", "operands": [["index", 2], ["index", 3]], "result": "temp2" },
-            { "op": "addition", "operands": [["index", "temp1"], ["index", 4]], "result": "temp3" },
-            { "op": "addition", "operands": [["index", "temp2"], ["index", "temp3"]], "result": "final" }
+            { "op": "addition", "operands": [["index", "temp1"], ["index", 2]], "result": "final" }
             ],
             "targets": "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Current assets",
             "source_labels": [
                 "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Cash and equivalents",
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Other financial assets",
                 "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Trade receivables",
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Inventories",
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Other current tax assets"
+                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Inventories"
             ]
         },
         {
@@ -505,12 +498,12 @@
         },
         {
             "formula_steps": [
-            { "op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final" }
+            { "op": "addition", "operands": [["index", 0], ["index", 1]], "result": "temp1" },
+            { "op": "addition", "operands": [["index", "temp1"], ["index", 2]], "result": "final" }
             ],
             "targets": "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Total Shareholders' Equity",
             "source_labels": [
                 "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Share capital & treasury shares",
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Share premium",
                 "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Retained earnings",
                 "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Reserves"
             ]
@@ -545,12 +538,10 @@
         },
         {
             "formula_steps": [
-            { "op": "addition", "operands": [["index", 0], ["index", 1]], "result": "temp1" },
-            { "op": "addition", "operands": [["index", "temp1"], ["index", 2]], "result": "final" }
+            { "op": "addition", "operands": [["index", 0], ["index", 1]], "result": "final" }
             ],
             "targets": "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Long term liabilities",
             "source_labels": [
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Deferred tax liabilities",
                 "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Grants liabilities",
                 "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::LT financial liabilities"
             ]
@@ -575,18 +566,11 @@
         },
         {
             "formula_steps": [
-            { "op": "addition", "operands": [["index", 0], ["index", 1]], "result": "temp1" },
-            { "op": "addition", "operands": [["index", 2], ["index", 3]], "result": "temp2" },
-            { "op": "addition", "operands": [["index", "temp1"], ["index", 4]], "result": "temp3" },
-            { "op": "addition", "operands": [["index", "temp2"], ["index", "temp3"]], "result": "final" }
+            { "op": "copy", "operands": [["index", 0]], "result": "final" }
             ],
             "targets": "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Short term liabilities",
             "source_labels": [
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Trade payables",
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Other short term liabilities",
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Other tax liabilities",
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::ST financial liabilities",
-                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Provisions"
+                "./financial-statements/financial-statements-{model}.xlsx::{ffss_section}::Trade payables"
             ]
         },
         {

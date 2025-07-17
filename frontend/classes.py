@@ -271,7 +271,7 @@ class TechnoEconomicModels:
         self.fuel_market = fuel_market
         self.cell_validator = CellValidator()
         self.subsections = {
-            "Manage Techno-Economic Models": ManageModels(self.api_url),
+            "Manage Techno-Economic Inputs": ManageModels(self.api_url),
             "Design Capital Structure": DesignCapitalStructure(api_url, subsection, model, fuel_market, self.cell_validator),
             "Techno-Economic Inputs": TechnoEconomicInputs(api_url, subsection, model, fuel_market, self.cell_validator),
             "Carbon Credits": CarbonCredits(api_url, subsection, model, self.cell_validator),
@@ -420,11 +420,11 @@ class ManageModels:
             with col1:
                 if st.button(f"📄 {clean_name}"):
                     if clean_name == "BAU":
-                        st.session_state.page = "Techno-Economic Models"
+                        st.session_state.page = "Techno-Economic Inputs"
                         st.session_state.subsection = "Carbon Credits"
                     else:
-                        st.session_state.page = "Techno-Economic Models"
-                        st.session_state.subsection = "Design Capital Structure"
+                        st.session_state.page = "Techno-Economic Inputs"
+                        st.session_state.subsection = "Techno-Economic Inputs"
                     st.session_state.model = clean_name
                     st.rerun()
 
@@ -468,10 +468,10 @@ class ManageModels:
                         st.error(f"Only Excel files are allowed: {', '.join(self.valid_extensions)}")
 
     def __call__(self):
-        st.subheader("Manage Techno-Economic Models")
+        st.subheader("Manage Techno-Economic Inputs")
         models = self.list_technoeconomic_models()
         if not models:
-            st.info("No techno-economic models available.")
+            st.info("No techno-economic inputs available.")
         else:
             self.show_technoeconomic_models(models)
         self.model_creator()
