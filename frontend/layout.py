@@ -201,7 +201,12 @@ def sidebar():
                 st.markdown("##### Outputs")
                 with st.expander("Financial Statements", expanded=False):
                     for sheet in financial_statement_sections:
-                        if st.button(f"{sheet} - FFSS"):
+                        sheet_button = sheet
+                        if sheet == "Electricity":
+                            sheet_button = "Electricity & E-Cooking"
+                        if sheet == "E-Cooking":
+                            sheet_button = "Only E-Cooking"
+                        if st.button(f"{sheet_button} - FFSS"):
                             st.session_state.page = "Techno-Economic Inputs"
                             st.session_state.subsection = "Financial Statements"
                             st.session_state.fuel_market = f"{sheet}"

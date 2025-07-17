@@ -1,6 +1,11 @@
 import layout as l
 import classes as c
 import streamlit as st
+import base64
+
+def image_to_base64(path):
+    with open(path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
 
 if "page" not in st.session_state:
     st.session_state.page = "Welcome"
@@ -13,21 +18,12 @@ if st.session_state.page == "Welcome":
         body {
             background-color: #e0f2f1;
         }
-                
+
         .welcome-title {
             text-align: center;
             font-size: 2.5rem;
             font-weight: 600;
             color: #004d40;
-        }
-
-        .banner-image {
-            width: 100%;
-            height: 350px;
-            background-image: url('https://thumbs.dreamstime.com/b/mujer-africana-cocina-comida-tradicional-en-la-calle-mujeres-africanas-cocinan-231196870.jpg');
-            background-size: cover;
-            background-position: center;
-            border-radius: 10px;
         }
 
         .center-button {
@@ -38,8 +34,15 @@ if st.session_state.page == "Welcome":
         </style>
 
         <div class="welcome-title">Welcome to the Financial Clean Cooking Platform</div>
-        <div class="banner-image"></div>
     """, unsafe_allow_html=True)
+
+    img_base64 = image_to_base64("imagen.png")
+    st.markdown(f"""
+        <div style="text-align: center;">
+            <img src="data:image/png;base64,{img_base64}" style="height: 400px;" />
+        </div>
+    """, unsafe_allow_html=True)
+
 
     st.markdown("<br>", unsafe_allow_html=True)
 
