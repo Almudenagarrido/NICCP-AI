@@ -59,7 +59,7 @@ elif st.session_state.page == "Scenario Selection":
 
     if "country" in st.session_state:
         st.image(
-            "https://tse2.mm.bing.net/th/id/OIP.1O_v7LZzPuKZGK-BtyiRFQHaGW?w=852&h=730&rs=1&pid=ImgDetMain&o=7&rm=3",
+            "imagen2.png",
             caption="Rwanda – Selected Scenario",
             width=200,
         )

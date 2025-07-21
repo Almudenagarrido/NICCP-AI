@@ -979,7 +979,7 @@ class CarbonCredits:
             update_mode=GridUpdateMode.VALUE_CHANGED,
             allow_unsafe_jscode=True,
             enable_enterprise_modules=False,
-            height=320
+            height=220
         )
         self.edited_df = pd.DataFrame(grid_response["data"])
     
